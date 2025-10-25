@@ -23,7 +23,12 @@ export const PLAYER = {
   DASH_DURATION: 180, // ms
   DASH_COOLDOWN: 1000, // ms
   TELEPORT_COOLDOWN: 2000, // ms
-  SHADOW_CLONE_COOLDOWN: 5000, // ms
+  SPINNING_BLADE_COOLDOWN: 3000, // ms
+  SPINNING_BLADE_SPEED: 8,
+  SPINNING_BLADE_WIDTH: 25,
+  SPINNING_BLADE_HEIGHT: 25,
+  SHIELD_DURATION: 2500, // ms
+  SHIELD_COOLDOWN: 5000, // ms
 };
 
 export const ENEMY_DEFINITIONS: Record<EnemyType, any> = {
@@ -63,102 +68,153 @@ export const ENEMY = {
   PROJECTILE_HEIGHT: 15,
 };
 
-export const LEVEL_ONE: LevelObject[] = [
-  // Floor
-  { id: 'p1', type: 'platform', x: 0, y: GAME_HEIGHT - 20, width: GAME_WIDTH, height: 20 },
-  
-  // Platforms
-  { id: 'p2', type: 'platform', x: 200, y: GAME_HEIGHT - 120, width: 150, height: 20 },
-  { id: 'p3', type: 'platform', x: 450, y: GAME_HEIGHT - 220, width: 150, height: 20 },
-  { id: 'p4', type: 'platform', x: 200, y: GAME_HEIGHT - 350, width: 100, height: 20 },
-  { id: 'p5', type: 'platform', x: 650, y: GAME_HEIGHT - 350, width: 200, height: 20 },
-  
-  // Spikes
-  { id: 's1', type: 'spike', x: 500, y: GAME_HEIGHT - 40, width: 100, height: 20 },
-  
-  // Enemies
-  { id: 'e1', type: 'enemy', enemyType: 'charger', x: 500, y: GAME_HEIGHT - 220 - ENEMY_DEFINITIONS.charger.height, width: ENEMY_DEFINITIONS.charger.width, height: ENEMY_DEFINITIONS.charger.height },
-  { id: 'e2', type: 'enemy', enemyType: 'patrol', x: 750, y: GAME_HEIGHT - 350 - ENEMY_DEFINITIONS.patrol.height, width: ENEMY_DEFINITIONS.patrol.width, height: ENEMY_DEFINITIONS.patrol.height },
-  { id: 'e3', type: 'enemy', enemyType: 'patrol', x: 250, y: GAME_HEIGHT - 120 - ENEMY_DEFINITIONS.patrol.height, width: ENEMY_DEFINITIONS.patrol.width, height: ENEMY_DEFINITIONS.patrol.height },
-  { id: 'e4', type: 'enemy', enemyType: 'patrol', x: 680, y: GAME_HEIGHT - 350 - ENEMY_DEFINITIONS.patrol.height, width: ENEMY_DEFINITIONS.patrol.width, height: ENEMY_DEFINITIONS.patrol.height },
-  { id: 'e5', type: 'enemy', enemyType: 'charger', x: 800, y: GAME_HEIGHT - 20 - ENEMY_DEFINITIONS.charger.height, width: ENEMY_DEFINITIONS.charger.width, height: ENEMY_DEFINITIONS.charger.height },
 
-  // Goal
-  { id: 'g1', type: 'goal', x: 100, y: GAME_HEIGHT - 350 - 60, width: 60, height: 60 },
-];
+// --- PROCEDURAL LEVEL GENERATION ---
 
+// Helper: Pseudo-random number generator for deterministic levels based on seed
+const mulberry32 = (seed: number) => {
+  return () => {
+    seed |= 0;
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+};
 
-export const LEVEL_TWO: LevelObject[] = [
-  // Floor sections
-  { id: 'l2_p1', type: 'platform', x: 0, y: GAME_HEIGHT - 20, width: 300, height: 20 },
-  { id: 'l2_p2', type: 'platform', x: GAME_WIDTH - 300, y: GAME_HEIGHT - 20, width: 300, height: 20 },
-  
-  // Spikes in the middle floor
-  { id: 'l2_s1', type: 'spike', x: 300, y: GAME_HEIGHT - 40, width: GAME_WIDTH - 600, height: 20 },
+const generateLevel = (levelNumber: number): LevelObject[] => {
+    const rand = mulberry32(levelNumber);
+    const level: LevelObject[] = [];
+    let idCounter = 0;
 
-  // Rising platforms
-  { id: 'l2_p3', type: 'platform', x: 100, y: GAME_HEIGHT - 120, width: 100, height: 20 },
-  { id: 'l2_p4', type: 'platform', x: GAME_WIDTH - 200, y: GAME_HEIGHT - 120, width: 100, height: 20 },
-  { id: 'l2_p5', type: 'platform', x: 400, y: GAME_HEIGHT - 220, width: 224, height: 20 },
+    const isChallengeLevel = levelNumber > 20 && (levelNumber - 1) % 20 === 0;
 
-  // Spikes as a ceiling for the platform below it
-  { id: 'l2_s2', type: 'spike', x: 400, y: GAME_HEIGHT - 240, width: 224, height: 20 },
+    // Difficulty scales from 0 to 1, reaching max difficulty around level 200
+    // Challenge levels get a significant difficulty spike
+    let difficulty = Math.min(1, levelNumber / 200); 
+    if (isChallengeLevel) {
+        difficulty = Math.min(1, (levelNumber + 40) / 200);
+    }
 
-  // Mid-air platforms
-  { id: 'l2_p6', type: 'platform', x: 150, y: GAME_HEIGHT - 320, width: 80, height: 20 },
-  { id: 'l2_p7', type: 'platform', x: GAME_WIDTH - 230, y: GAME_HEIGHT - 320, width: 80, height: 20 },
-  { id: 'l2_p8', type: 'platform', x: 0, y: GAME_HEIGHT - 420, width: 120, height: 20 },
+    let currentX = 0;
+    let currentY = GAME_HEIGHT - 100;
 
-  // Top platform
-  { id: 'l2_p9', type: 'platform', x: 300, y: GAME_HEIGHT - 450, width: 424, height: 20 },
-  
-  // Enemies
-  { id: 'l2_e1', type: 'enemy', enemyType: 'shooter', x: 450, y: GAME_HEIGHT - 220 - ENEMY_DEFINITIONS.shooter.height, width: ENEMY_DEFINITIONS.shooter.width, height: ENEMY_DEFINITIONS.shooter.height },
-  { id: 'l2_e2', type: 'enemy', enemyType: 'patrol', x: 550, y: GAME_HEIGHT - 220 - ENEMY_DEFINITIONS.patrol.height, width: ENEMY_DEFINITIONS.patrol.width, height: ENEMY_DEFINITIONS.patrol.height },
-  { id: 'l2_e3', type: 'enemy', enemyType: 'shooter', x: 400, y: GAME_HEIGHT - 450 - ENEMY_DEFINITIONS.shooter.height, width: ENEMY_DEFINITIONS.shooter.width, height: ENEMY_DEFINITIONS.shooter.height },
-  { id: 'l2_e4', type: 'enemy', enemyType: 'ninja', x: 600, y: GAME_HEIGHT - 450 - ENEMY_DEFINITIONS.ninja.height, width: ENEMY_DEFINITIONS.ninja.width, height: ENEMY_DEFINITIONS.ninja.height },
+    // Start platform
+    level.push({ id: `p_${idCounter++}`, type: 'platform', x: 0, y: GAME_HEIGHT - 40, width: 150, height: 40 });
+    currentX = 150;
+    currentY = GAME_HEIGHT - 40;
 
-  // Goal
-  { id: 'l2_g1', type: 'goal', x: GAME_WIDTH - 100, y: GAME_HEIGHT - 420 - 60, width: 60, height: 60 },
-];
+    // Determine level length based on difficulty
+    const levelLength = 15 + Math.floor(rand() * 5) + Math.floor(difficulty * 30) + (isChallengeLevel ? 10 : 0);
+    
+    // Available enemies pool grows as the player progresses
+    const enemyPool: EnemyType[] = ['patrol'];
+    if (levelNumber > 10) enemyPool.push('charger');
+    if (levelNumber > 25) enemyPool.push('shooter');
+    if (levelNumber > 50) enemyPool.push('ninja');
 
-export const LEVEL_THREE: LevelObject[] = [
-  // No solid floor, just platforms over a void
-  // Start platform
-  { id: 'l3_p1', type: 'platform', x: 0, y: GAME_HEIGHT - 20, width: 100, height: 20 },
+    for (let i = 0; i < levelLength; i++) {
+        // Platform width decreases and gap width increases with difficulty
+        const platformWidth = Math.max(40, 90 + (rand() * 120) * (1 - difficulty));
+        const gapWidth = 60 + rand() * (100 + 80 * difficulty);
+        
+        let nextX = currentX + gapWidth;
+        
+        // Vertical variation increases with difficulty
+        const yChange = (rand() - 0.48) * 220 * (1.0 + difficulty * 0.7);
+        let nextY = currentY + yChange;
+        // Clamp Y to be within screen bounds
+        nextY = Math.max(100, Math.min(GAME_HEIGHT - 40, nextY));
 
-  // Series of small, difficult jumps
-  { id: 'l3_p2', type: 'platform', x: 200, y: GAME_HEIGHT - 80, width: 50, height: 20 },
-  { id: 'l3_p3', type: 'platform', x: 350, y: GAME_HEIGHT - 140, width: 50, height: 20 },
-  { id: 'l3_p4', type: 'platform', x: 200, y: GAME_HEIGHT - 200, width: 50, height: 20 },
-  
-  // Long platform with an enemy and spikes below it
-  { id: 'l3_p5', type: 'platform', x: 450, y: GAME_HEIGHT - 180, width: 250, height: 20 },
-  { id: 'l3_s1', type: 'spike', x: 450, y: GAME_HEIGHT - 200, width: 250, height: 20 },
-  
-  // Path up to the top left
-  { id: 'l3_p6', type: 'platform', x: 800, y: GAME_HEIGHT - 250, width: 150, height: 20 },
-  { id: 'l3_p7', type: 'platform', x: 600, y: GAME_HEIGHT - 350, width: 80, height: 20 },
-  { id: 'l3_p8', type: 'platform', x: 400, y: GAME_HEIGHT - 420, width: 80, height: 20 },
-  
-  // Spiky ceiling hazard
-  { id: 'l3_s2', type: 'spike', x: 300, y: 0, width: 500, height: 20, orientation: 'down' },
+        const newPlatform: LevelObject = {
+            id: `p_${idCounter++}`,
+            type: 'platform',
+            x: nextX,
+            y: nextY,
+            width: platformWidth,
+            height: 20
+        };
+        level.push(newPlatform);
 
-  // Swinging Blade Hazard
-  { id: 'l3_sb1', type: 'swingingBlade', x:0, y:0, width: 80, height: 15, pivotX: 575, pivotY: 20, chainLength: 100, period: 3, initialAngle: -Math.PI / 3 },
+        // Add enemies on the new platform
+        const enemyChance = isChallengeLevel ? 0.7 : 0.25 + difficulty * 0.5;
+        if (rand() < enemyChance) {
+            const enemyType = enemyPool[Math.floor(rand() * enemyPool.length)];
+            const def = ENEMY_DEFINITIONS[enemyType];
+            if (def) {
+                level.push({
+                    id: `e_${idCounter++}`,
+                    type: 'enemy',
+                    enemyType: enemyType,
+                    x: nextX + (platformWidth / 2) - (def.width / 2),
+                    y: nextY - def.height,
+                    width: def.width,
+                    height: def.height
+                });
+            }
+        }
+        
+        // Add hazards on or around the new platform
+        const hazardChance = isChallengeLevel ? 0.65 : 0.15 + difficulty * 0.45;
+        if (rand() < hazardChance) {
+            // After level 40, swinging blades can appear
+            if (rand() > 0.4 || levelNumber < 40) { // Spikes are more common
+                const spikeWidth = Math.min(platformWidth, Math.floor(2 + rand() * 4) * 20);
+                const spikeX = nextX + rand() * (platformWidth - spikeWidth);
+                
+                if (rand() > 0.3 || newPlatform.y < 150) { // Ground spikes
+                    level.push({
+                        id: `s_${idCounter++}`,
+                        type: 'spike',
+                        x: spikeX,
+                        y: newPlatform.y - 20, // Above platform
+                        width: spikeWidth,
+                        height: 20,
+                        orientation: 'up'
+                    });
+                } else { // Ceiling spikes
+                    const ceilingY = Math.max(20, newPlatform.y - (100 + rand() * 100));
+                    level.push({
+                        id: `s_${idCounter++}`,
+                        type: 'spike',
+                        x: spikeX,
+                        y: ceilingY,
+                        width: spikeWidth,
+                        height: 20,
+                        orientation: 'down',
+                    });
+                }
+            } else { // Swinging blade hazard
+                 level.push({ 
+                    id: `sb_${idCounter++}`, 
+                    type: 'swingingBlade', 
+                    x:0, y:0, // x,y are calculated in game logic based on pivot and angle
+                    width: 80, 
+                    height: 15, 
+                    pivotX: nextX + platformWidth / 2, 
+                    pivotY: Math.max(20, newPlatform.y - (100 + rand() * 100)), // Pivot above platform
+                    chainLength: 130, 
+                    period: Math.max(1.8, 4 - (difficulty * 2)), // Faster swing on harder levels
+                    initialAngle: (rand() - 0.5) * Math.PI
+                });
+            }
+        }
 
+        currentX = nextX + platformWidth;
+        currentY = nextY;
+    }
 
-  // Final stretch
-  { id: 'l3_p9', type: 'platform', x: 100, y: GAME_HEIGHT - 350, width: 100, height: 20 },
-  { id: 'l3_p10', type: 'platform', x: 0, y: GAME_HEIGHT - 450, width: 50, height: 20 },
+    // Goal at the end of the level
+    const goalY = levelNumber > 150 ? currentY - (100 + rand() * 100) : currentY - 80; // Harder to reach goal
+    level.push({ id: 'goal', type: 'goal', x: currentX + 100, y: goalY, width: 60, height: 60 });
 
-  // Enemies
-  { id: 'l3_e1', type: 'enemy', enemyType: 'ninja', x: 500, y: GAME_HEIGHT - 180 - ENEMY_DEFINITIONS.ninja.height, width: ENEMY_DEFINITIONS.ninja.width, height: ENEMY_DEFINITIONS.ninja.height },
-  { id: 'l3_e2', type: 'enemy', enemyType: 'shooter', x: 850, y: GAME_HEIGHT - 250 - ENEMY_DEFINITIONS.shooter.height, width: ENEMY_DEFINITIONS.shooter.width, height: ENEMY_DEFINITIONS.shooter.height },
-  { id: 'l3_e3', type: 'enemy', enemyType: 'patrol', x: 120, y: GAME_HEIGHT - 350 - ENEMY_DEFINITIONS.patrol.height, width: ENEMY_DEFINITIONS.patrol.width, height: ENEMY_DEFINITIONS.patrol.height },
+    // Every 10th level is a pitfall level (no floor)
+    if (levelNumber > 5 && levelNumber % 10 !== 0) {
+        level.push({ id: 'floor', type: 'platform', x: 0, y: GAME_HEIGHT - 20, width: currentX + 200, height: 20 });
+    }
 
-  // Goal
-  { id: 'l3_g1', type: 'goal', x: 20, y: GAME_HEIGHT - 450 - 60, width: 60, height: 60 },
-];
+    return level;
+};
 
-export const ALL_LEVELS = [LEVEL_ONE, LEVEL_TWO, LEVEL_THREE];
+// Generate all 250 levels
+export const ALL_LEVELS = Array.from({ length: 250 }, (_, i) => generateLevel(i + 1));

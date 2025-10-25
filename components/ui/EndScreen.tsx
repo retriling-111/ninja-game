@@ -1,9 +1,7 @@
-
 import React from 'react';
-import type { GameStatus } from '../../types';
 
 interface EndScreenProps {
-  status: 'gameOver' | 'win';
+  status: 'gameOver' | 'win' | 'gameEnd';
   onRestart: () => void;
 }
 
@@ -12,10 +10,17 @@ const EndScreen: React.FC<EndScreenProps> = ({ status, onRestart }) => {
     gameOver: {
       title: 'Fallen in Shadow',
       subtitle: 'The path ends here.',
+      button: 'Retry',
     },
     win: {
       title: 'Victory in Silence',
       subtitle: 'You have mastered the shadow.',
+      button: 'Play Again',
+    },
+    gameEnd: {
+      title: 'This Game is End',
+      subtitle: 'You have conquered all the shadows.',
+      button: 'Play Again from Level 1',
     },
   };
 
@@ -31,7 +36,7 @@ const EndScreen: React.FC<EndScreenProps> = ({ status, onRestart }) => {
         onClick={onRestart}
         className="mt-12 px-8 py-3 bg-red-800 hover:bg-red-700 border-2 border-red-600 text-white font-bold text-xl transition-all duration-300 rounded-sm shadow-lg shadow-red-900/50"
       >
-        Retry
+        {message.button}
       </button>
     </div>
   );

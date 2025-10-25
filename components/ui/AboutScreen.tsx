@@ -27,13 +27,17 @@ const AboutScreen: React.FC<AboutScreenProps> = ({ onBack }) => {
             <ControlItem keyName="Space" action="Double Jump" />
             <ControlItem keyName="A" action="Attack" />
             <ControlItem keyName="D" action="Dash" />
-            <ControlItem keyName="W" action="Teleport" />
-            <ControlItem keyName="S" action="Shadow Clone" />
+            <ControlItem keyName="W" action="Spinning Blade" />
             <ControlItem keyName="P" action="Pause" />
         </div>
         <div className="flex-1">
             <h2 className="text-xl font-bold text-white mb-2">Mobile Controls:</h2>
-            <p>Coming soon! A touch-based control scheme is in development for our shinobi on the go.</p>
+            <p className="text-gray-300">A simple and clear touch-based control scheme is planned:</p>
+            <ul className="list-disc list-inside mt-2">
+              <li><span className="font-bold text-gray-200">Left/Right of Screen:</span> Move</li>
+              <li><span className="font-bold text-gray-200">Swipe Up:</span> Jump / Double Jump</li>
+              <li><span className="font-bold text-gray-200">On-screen Buttons:</span> Attack, Dash, and special abilities.</li>
+            </ul>
         </div>
       </div>
 

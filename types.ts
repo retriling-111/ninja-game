@@ -1,4 +1,4 @@
-export type GameStatus = 'loading' | 'start' | 'playing' | 'gameOver' | 'win' | 'about' | 'levels' | 'settings';
+export type GameStatus = 'loading' | 'start' | 'playing' | 'gameOver' | 'win' | 'about' | 'levels' | 'settings' | 'gameEnd';
 
 export interface GameObject {
   id: string;
@@ -11,6 +11,8 @@ export interface GameObject {
 export type LevelObjectType = 'platform' | 'enemy' | 'spike' | 'goal' | 'swingingBlade';
 
 export type EnemyType = 'patrol' | 'shooter' | 'charger' | 'ninja';
+export type AiState = 'patrolling' | 'aggro';
+export type Direction = 'left' | 'right';
 
 export interface LevelObject extends GameObject {
   type: LevelObjectType;
@@ -24,18 +26,13 @@ export interface LevelObject extends GameObject {
   initialAngle?: number;
 }
 
-export interface SwingingBladeState extends LevelObject {
-  angle: number;
-}
-
-
 export interface PlayerState extends GameObject {
   vx: number;
   vy: number;
   isOnGround: boolean;
   isAttacking: boolean;
   attackCooldown: number;
-  direction: 'left' | 'right';
+  direction: Direction;
   health: number;
   invincibilityTimer: number;
   isDashing: boolean;
@@ -43,20 +40,31 @@ export interface PlayerState extends GameObject {
   dashTimer: number;
   doubleJumpUsed: boolean;
   teleportCooldown: number;
-  shadowCloneCooldown: number;
+  spinningBladeCooldown: number;
+  isShielding: boolean;
+  shieldTimer: number;
+  shieldCooldown: number;
 }
 
 export interface EnemyState extends GameObject {
-  type: EnemyType;
-  direction: 'left' | 'right';
-  attackCooldown: number;
-  aiState: 'idle' | 'aggro' | 'patrolling';
-  patrolBounds?: { left: number; right: number };
-  vx: number;
-  initialX: number;
-  meleeAttackTimer: number;
+    type: EnemyType;
+    direction: Direction;
+    attackCooldown: number;
+    aiState: AiState;
+    patrolBounds?: { left: number; right: number };
+    vx: number;
+    initialX: number;
+    meleeAttackTimer: number; // Ninja specific
 }
 
 export interface ProjectileState extends GameObject {
-  vx: number;
+    vx: number;
+}
+
+export interface SpinningBladeProjectileState extends GameObject {
+    vx: number;
+}
+
+export interface SwingingBladeState extends LevelObject {
+  angle: number;
 }

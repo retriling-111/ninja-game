@@ -1,6 +1,6 @@
 
 import React from 'react';
-import type { LevelObject } from '../../types';
+import type { LevelObject } from '../types';
 
 interface SpikeProps {
   spike: LevelObject;

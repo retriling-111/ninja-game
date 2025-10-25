@@ -39,18 +39,6 @@ const StartScreen: React.FC<StartScreenProps> = ({ onStart, onShowAbout, onShowL
           About
         </button>
       </div>
-
-      <div className="mt-12 text-gray-400 p-4 border border-gray-700 rounded-md bg-black/30 w-full max-w-sm">
-        <p className="text-lg font-bold text-white mb-2">Controls:</p>
-        <p><span className="font-bold text-gray-200">Left/Right Arrows</span> - Move</p>
-        <p><span className="font-bold text-gray-200">Up Arrow</span> - Jump</p>
-        <p><span className="font-bold text-gray-200">Space</span> - Double Jump</p>
-        <p><span className="font-bold text-gray-200">A</span> - Attack</p>
-        <p><span className="font-bold text-gray-200">D</span> - Dash</p>
-        <p><span className="font-bold text-gray-200">W</span> - Teleport</p>
-        <p><span className="font-bold text-gray-200">S</span> - Shadow Clone</p>
-        <p><span className="font-bold text-gray-200">P</span> - Pause</p>
-      </div>
     </div>
   );
 };

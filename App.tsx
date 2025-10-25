@@ -60,9 +60,16 @@ const App: React.FC = () => {
       setCurrentLevel(prev => prev + 1);
       setGameKey(prev => prev + 1);
     } else {
-      setGameStatus('win');
+      setGameStatus('gameEnd');
     }
   }, [currentLevel]);
+
+  const handleResetGame = useCallback(() => {
+    if (window.confirm('Are you sure you want to reset all progress? You will start back at Level 1.')) {
+      setCurrentLevel(1);
+      setGameStatus('start');
+    }
+  }, []);
 
   const renderContent = () => {
     switch (gameStatus) {
@@ -81,7 +88,7 @@ const App: React.FC = () => {
       case 'levels':
         return <LevelsScreen onBack={goToMainMenu} onSelectLevel={startGame} />;
       case 'settings':
-        return <SettingsScreen onBack={goToMainMenu} />;
+        return <SettingsScreen onBack={goToMainMenu} onResetGame={handleResetGame} />;
       case 'playing':
         return <Game 
                   key={gameKey} 
@@ -93,8 +100,10 @@ const App: React.FC = () => {
                 />;
       case 'gameOver':
         return <EndScreen status="gameOver" onRestart={() => startGame(currentLevel)} />;
-      case 'win':
+      case 'win': // This case might be deprecated in favor of gameEnd
         return <EndScreen status="win" onRestart={() => startGame(1)} />;
+      case 'gameEnd':
+        return <EndScreen status="gameEnd" onRestart={() => startGame(1)} />;
       default:
         return <LoadingScreen />;
     }

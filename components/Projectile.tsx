@@ -1,5 +1,5 @@
 import React from 'react';
-import type { GameObject } from '../../types';
+import type { GameObject } from '../types';
 
 interface ProjectileProps {
   projectile: GameObject;

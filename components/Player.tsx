@@ -23,6 +23,11 @@ const Player: React.FC<PlayerProps> = ({ player }) => {
       }}
       className={playerClasses}
     >
+      {/* Shield Effect */}
+      {player.isShielding && (
+        <div className="absolute inset-[-10px] bg-red-500/30 border-2 border-red-500 rounded-full animate-pulse" />
+      )}
+
       {/* Dash Afterimage */}
       {player.isDashing && (
         <div className="absolute top-0 left-0 w-full h-full bg-red-600 opacity-50" />

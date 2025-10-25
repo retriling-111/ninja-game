@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 
 interface SettingsScreenProps {
   onBack: () => void;
+  onResetGame: () => void;
 }
 
 const SettingsRow: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
@@ -11,7 +12,21 @@ const SettingsRow: React.FC<{ label: string; children: React.ReactNode }> = ({ l
     </div>
 );
 
-const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
+const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack, onResetGame }) => {
+  const [isShakeEnabled, setIsShakeEnabled] = useState(false);
+
+  useEffect(() => {
+    const savedShakeSetting = localStorage.getItem('screenShakeEnabled');
+    setIsShakeEnabled(savedShakeSetting === 'true');
+  }, []);
+
+  const handleShakeToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const enabled = e.target.checked;
+    setIsShakeEnabled(enabled);
+    localStorage.setItem('screenShakeEnabled', JSON.stringify(enabled));
+  };
+
+
   return (
     <div className="text-center animate-fadeIn flex flex-col items-center justify-center max-w-xl w-full">
       <h1 className="text-5xl md:text-6xl font-bold text-red-600 blood-text-shadow">
@@ -36,7 +51,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
         <h2 className="text-2xl font-bold text-white self-start border-b-2 border-red-700 pb-1 mt-4">Graphics</h2>
          <SettingsRow label="Screen Shake">
             <label className="relative inline-flex items-center cursor-pointer">
-              <input type="checkbox" value="" className="sr-only peer" defaultChecked />
+              <input type="checkbox" checked={isShakeEnabled} onChange={handleShakeToggle} className="sr-only peer" />
               <div className="w-11 h-6 bg-gray-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-700"></div>
             </label>
         </SettingsRow>
@@ -45,10 +60,10 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
         <h2 className="text-2xl font-bold text-white self-start border-b-2 border-red-700 pb-1 mt-4">Game</h2>
          <SettingsRow label="Reset Progress">
             <button 
-              onClick={() => alert('This will delete all save data. (Functionality coming soon!)')}
+              onClick={onResetGame}
               className="px-4 py-1 bg-red-900 hover:bg-red-800 border border-red-700 text-white font-semibold text-sm transition-all duration-300 rounded-sm"
             >
-              Reset
+              Reset Game
             </button>
         </SettingsRow>
       </div>
