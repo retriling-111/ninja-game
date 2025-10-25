@@ -342,6 +342,9 @@ const Game: React.FC<GameProps> = ({ level, onGameOver, onLevelComplete, onGoToM
   const currentLevelData = ALL_LEVELS[level - 1] || ALL_LEVELS[0];
   const [isPaused, setIsPaused] = useState(false);
   
+  const gameContainerRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState<number | null>(null);
+
   const playerRef = useRef<PlayerState>({
     id: 'player',
     x: 50,
@@ -385,6 +388,21 @@ const Game: React.FC<GameProps> = ({ level, onGameOver, onLevelComplete, onGoToM
 
   const [levelObjects] = useState<LevelObject[]>(currentLevelData);
   const [frame, setFrame] = useState(0); // Used to force re-render
+
+  useEffect(() => {
+    const container = gameContainerRef.current;
+    if (!container) return;
+
+    const observer = new ResizeObserver(() => {
+        if (container && container.offsetWidth > 0) {
+            const containerWidth = container.offsetWidth;
+            const newScale = containerWidth / GAME_WIDTH;
+            setScale(newScale);
+        }
+    });
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     isScreenShakeEnabled.current = localStorage.getItem('screenShakeEnabled') === 'true';
@@ -717,45 +735,59 @@ const Game: React.FC<GameProps> = ({ level, onGameOver, onLevelComplete, onGoToM
 
   return (
     <div
-      className="relative bg-gray-900 overflow-hidden border-4 border-gray-700 w-full h-full"
-      style={{ maxWidth: GAME_WIDTH, maxHeight: GAME_HEIGHT, aspectRatio: `${GAME_WIDTH}/${GAME_HEIGHT}` }}
+      ref={gameContainerRef}
+      className="relative bg-gray-900 overflow-hidden border-4 border-gray-700 w-full max-h-full"
+      style={{ maxWidth: GAME_WIDTH, aspectRatio: `${GAME_WIDTH} / ${GAME_HEIGHT}` }}
     >
+      {/* Non-scaled UI overlays */}
       {isPaused && <PauseMenu onResume={() => setIsPaused(false)} onRestart={onRestartCurrentLevel} onGoToMainMenu={onGoToMainMenu} />}
       <MobileControls onKeyPress={handleTouchKeyPress} onKeyRelease={handleTouchKeyRelease} />
-
-      <div className="absolute top-4 left-4 flex items-center gap-4 p-2 bg-black/50 rounded-md z-10">
+      
+      {/* Scaled game container */}
+      <div
+        style={{
+          width: GAME_WIDTH,
+          height: GAME_HEIGHT,
+          transform: `scale(${scale})`,
+          transformOrigin: 'top left',
+          visibility: scale === null ? 'hidden' : 'visible',
+        }}
+      >
+        {/* Scaled UI */}
+        <div className="absolute top-4 left-4 flex items-center gap-4 p-2 bg-black/50 rounded-md z-10">
           <HealthBar health={playerRef.current.health} maxHealth={PLAYER.INITIAL_HEALTH} />
           <CooldownIndicator cooldown={playerRef.current.dashCooldown} maxCooldown={PLAYER.DASH_COOLDOWN} label="D" />
           <CooldownIndicator cooldown={playerRef.current.spinningBladeCooldown} maxCooldown={PLAYER.SPINNING_BLADE_COOLDOWN} label="W" />
           <CooldownIndicator cooldown={playerRef.current.shieldCooldown} maxCooldown={PLAYER.SHIELD_COOLDOWN} label="S" />
-      </div>
+        </div>
 
-       <div className="absolute top-2 left-1/2 -translate-x-1/2 p-2 bg-black/50 rounded-md z-10 text-xl font-bold text-white blood-text-shadow">
+        <div className="absolute top-2 left-1/2 -translate-x-1/2 p-2 bg-black/50 rounded-md z-10 text-xl font-bold text-white blood-text-shadow">
           Level: {level}
-      </div>
+        </div>
 
-      <button
-        onClick={() => setIsPaused(true)}
-        className="absolute top-4 right-4 w-10 h-10 bg-black/50 rounded-md z-10 text-white font-bold text-xl flex items-center justify-center active:bg-black/80"
-        aria-label="Pause Game"
-      >
-        ||
-      </button>
+        <button
+          onClick={() => setIsPaused(true)}
+          className="absolute top-4 right-4 w-10 h-10 bg-black/50 rounded-md z-10 text-white font-bold text-xl flex items-center justify-center active:bg-black/80"
+          aria-label="Pause Game"
+        >
+          ||
+        </button>
 
-
-      <div 
-        className="absolute top-0 left-0"
-        style={{ 
+        {/* Game World */}
+        <div
+          className="absolute top-0 left-0"
+          style={{
             transform: `translate(${-camera.x + shakeX}px, ${-camera.y + shakeY}px)`,
             willChange: 'transform'
-        }}
-      >
-        <Player player={playerRef.current} />
-        {levelObjects.map(renderMapObject)}
-        {enemies.map(enemy => <Enemy key={enemy.id} enemy={enemy} />)}
-        {projectiles.map(p => <Projectile key={p.id} projectile={p} />)}
-        {swingingBlades.map(b => <SwingingBlade key={b.id} blade={b} />)}
-        {spinningBlades.map(b => <SpinningBlade key={b.id} blade={b} />)}
+          }}
+        >
+          <Player player={playerRef.current} />
+          {levelObjects.map(renderMapObject)}
+          {enemies.map(enemy => <Enemy key={enemy.id} enemy={enemy} />)}
+          {projectiles.map(p => <Projectile key={p.id} projectile={p} />)}
+          {swingingBlades.map(b => <SwingingBlade key={b.id} blade={b} />)}
+          {spinningBlades.map(b => <SpinningBlade key={b.id} blade={b} />)}
+        </div>
       </div>
     </div>
   );

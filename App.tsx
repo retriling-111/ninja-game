@@ -110,7 +110,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <main className="flex items-center justify-center min-h-screen bg-black text-white p-4">
+    <main className="flex items-center justify-center h-screen bg-black text-white">
       {renderContent()}
     </main>
   );
