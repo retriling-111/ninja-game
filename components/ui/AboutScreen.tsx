@@ -5,54 +5,49 @@ interface AboutScreenProps {
 }
 
 const ControlItem: React.FC<{ keyName: string; action: string }> = ({ keyName, action }) => (
-  <p><span className="font-bold text-gray-200">{keyName}</span> - {action}</p>
+  <li><span className="font-semibold text-gray-200">{keyName}:</span> {action}</li>
 );
 
 const AboutScreen: React.FC<AboutScreenProps> = ({ onBack }) => {
   return (
-    <div className="text-center animate-fadeIn flex flex-col items-center justify-center max-w-2xl w-full">
-      <h1 className="text-5xl md:text-6xl font-bold text-red-600 blood-text-shadow">
-        About Crimson Shinobi
-      </h1>
-      
-      <p className="mt-6 text-lg text-gray-300">
-        Embark on a perilous journey as the Crimson Shinobi. Master the shadows, overcome deadly traps, and vanquish your foes with silent precision. Your path is one of blood and darkness. Prove your skill and become a legend.
-      </p>
+    <div className="text-center animate-fadeIn flex flex-col items-center justify-center max-w-2xl w-full p-4">
+      <div className="bg-black/50 ios-backdrop-blur p-8 rounded-2xl border border-white/10 shadow-2xl">
+        <h1 className="text-5xl md:text-6xl font-bold text-red-600 blood-text-shadow">
+          About
+        </h1>
+        
+        <p className="mt-6 text-lg text-gray-300">
+          Embark on a perilous journey as the Crimson Shinobi. Master the shadows, overcome deadly traps, and vanquish your foes with silent precision. Your path is one of blood and darkness. Prove your skill and become a legend.
+        </p>
 
-      <div className="mt-8 text-gray-400 p-4 border border-gray-700 rounded-md bg-black/30 w-full text-left flex flex-col md:flex-row gap-8">
-        <div className="flex-1">
-            <h2 className="text-xl font-bold text-white mb-2">Desktop Controls:</h2>
-            <ControlItem keyName="Left/Right Arrows" action="Move" />
-            <ControlItem keyName="Up Arrow" action="Jump" />
-            <ControlItem keyName="Space" action="Double Jump" />
-            <ControlItem keyName="A" action="Attack" />
-            <ControlItem keyName="D" action="Dash" />
-            <ControlItem keyName="W" action="Spinning Blade" />
-            <ControlItem keyName="P" action="Pause" />
+        <div className="mt-8 text-gray-400 text-left flex flex-col md:flex-row gap-8">
+          <div className="flex-1">
+              <h2 className="text-xl font-bold text-white mb-2">Controls:</h2>
+              <ul className="space-y-1 list-inside">
+                <ControlItem keyName="← / →" action="Move" />
+                <ControlItem keyName="↑" action="Jump" />
+                <ControlItem keyName="Space" action="Double Jump" />
+                <ControlItem keyName="A" action="Attack" />
+                <ControlItem keyName="D" action="Dash" />
+                <ControlItem keyName="S" action="Shield" />
+                <ControlItem keyName="P / Esc" action="Pause" />
+              </ul>
+          </div>
         </div>
-        <div className="flex-1">
-            <h2 className="text-xl font-bold text-white mb-2">Mobile Controls:</h2>
-            <p className="text-gray-300">A simple and clear touch-based control scheme is planned:</p>
-            <ul className="list-disc list-inside mt-2">
-              <li><span className="font-bold text-gray-200">Left/Right of Screen:</span> Move</li>
-              <li><span className="font-bold text-gray-200">Swipe Up:</span> Jump / Double Jump</li>
-              <li><span className="font-bold text-gray-200">On-screen Buttons:</span> Attack, Dash, and special abilities.</li>
-            </ul>
+
+        <div className="mt-8 text-center w-full">
+           <h2 className="text-xl font-bold text-white mb-2">Support</h2>
+           <p>For feedback or bug reports, contact:</p>
+           <a href="mailto:retriling123@gmail.com" className="text-red-500 hover:text-red-400">retriling122@gmail.com</a>
         </div>
-      </div>
 
-      <div className="mt-8 text-center w-full">
-         <h2 className="text-xl font-bold text-white mb-2">Support</h2>
-         <p>For questions, feedback, or bug reports, please contact our support team at:</p>
-         <a href="mailto:retriling123@gmail.com" className="text-red-500 hover:text-red-400">retriling123@gmail.com</a>
+        <button
+          onClick={onBack}
+          className="mt-12 px-8 py-3 bg-gray-800 hover:bg-gray-700 border border-gray-600 text-white font-semibold text-lg transition-all duration-300 rounded-xl"
+        >
+          Back to Menu
+        </button>
       </div>
-
-      <button
-        onClick={onBack}
-        className="mt-12 px-8 py-3 bg-gray-700 hover:bg-gray-600 border-2 border-gray-500 text-white font-bold text-xl transition-all duration-300 rounded-sm"
-      >
-        Back to Menu
-      </button>
     </div>
   );
 };

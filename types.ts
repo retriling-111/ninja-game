@@ -1,4 +1,4 @@
-export type GameStatus = 'loading' | 'login' | 'loadingData' | 'start' | 'playing' | 'gameOver' | 'win' | 'about' | 'levels' | 'settings' | 'gameEnd';
+export type GameStatus = 'loading' | 'login' | 'loadingData' | 'start' | 'playing' | 'gameOver' | 'win' | 'about' | 'levels' | 'settings' | 'gameEnd' | 'levelComplete';
 
 export interface GameObject {
   id: string;
@@ -8,7 +8,7 @@ export interface GameObject {
   height: number;
 }
 
-export type LevelObjectType = 'platform' | 'enemy' | 'spike' | 'goal' | 'swingingBlade';
+export type LevelObjectType = 'platform' | 'enemy' | 'spike' | 'goal' | 'swingingBlade' | 'healthPack';
 
 export type EnemyType = 'patrol' | 'shooter' | 'charger' | 'ninja';
 export type AiState = 'patrolling' | 'aggro';
@@ -40,10 +40,9 @@ export interface PlayerState extends GameObject {
   dashTimer: number;
   doubleJumpUsed: boolean;
   teleportCooldown: number;
-  spinningBladeCooldown: number;
   isShielding: boolean;
-  shieldTimer: number;
   shieldCooldown: number;
+  shieldTimer: number;
 }
 
 export interface EnemyState extends GameObject {
@@ -61,7 +60,7 @@ export interface ProjectileState extends GameObject {
     vx: number;
 }
 
-export interface SpinningBladeProjectileState extends GameObject {
+export interface ShurikenProjectileState extends GameObject {
     vx: number;
 }
 

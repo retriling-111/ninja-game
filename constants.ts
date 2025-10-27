@@ -20,15 +20,11 @@ export const PLAYER = {
   INITIAL_HEALTH: 3,
   INVINCIBILITY_DURATION: 1500, // ms
   DASH_SPEED: 14,
-  DASH_DURATION: 180, // ms
+  DASH_DURATION: 250, // ms
   DASH_COOLDOWN: 1000, // ms
-  TELEPORT_COOLDOWN: 2000, // ms
-  SPINNING_BLADE_COOLDOWN: 3000, // ms
-  SPINNING_BLADE_SPEED: 8,
-  SPINNING_BLADE_WIDTH: 25,
-  SPINNING_BLADE_HEIGHT: 25,
-  SHIELD_DURATION: 2500, // ms
+  SHIELD_DURATION: 3500, // ms
   SHIELD_COOLDOWN: 5000, // ms
+  TELEPORT_COOLDOWN: 2000, // ms
 };
 
 export const ENEMY_DEFINITIONS: Record<EnemyType, any> = {
@@ -89,9 +85,15 @@ const generateLevel = (levelNumber: number): LevelObject[] => {
 
     const isChallengeLevel = levelNumber > 20 && (levelNumber - 1) % 20 === 0;
 
-    // User requested maximum difficulty for all levels.
-    const difficulty = 1.0;
-
+    // Make levels 1-5 easier, then ramp up difficulty.
+    let difficulty: number;
+    if (levelNumber <= 5) {
+      difficulty = 0.05 + (levelNumber - 1) * 0.05; // 0.05, 0.10, 0.15, 0.20, 0.25
+    } else {
+      // Smoothly ramp up to max difficulty around level 50
+      difficulty = Math.min(1.0, 0.25 + (levelNumber - 5) * 0.017);
+    }
+    
     let currentX = 0;
     let currentY = GAME_HEIGHT - 100;
 
@@ -111,13 +113,13 @@ const generateLevel = (levelNumber: number): LevelObject[] => {
 
     for (let i = 0; i < levelLength; i++) {
         // Platform width decreases and gap width increases with difficulty
-        const platformWidth = Math.max(40, 90 + (rand() * 120) * (1 - difficulty));
-        const gapWidth = 60 + rand() * (100 + 80 * difficulty);
+        const platformWidth = Math.max(80, 100 + (rand() * 120) * (1 - difficulty));
+        const gapWidth = 60 + rand() * (80 + 80 * difficulty);
         
         let nextX = currentX + gapWidth;
         
         // Vertical variation increases with difficulty
-        const yChange = (rand() - 0.48) * 220 * (1.0 + difficulty * 0.7);
+        const yChange = (rand() - 0.48) * 220 * (0.5 + difficulty * 0.7);
         let nextY = currentY + yChange;
         // Clamp Y to be within screen bounds
         nextY = Math.max(100, Math.min(GAME_HEIGHT - 40, nextY));
@@ -132,8 +134,10 @@ const generateLevel = (levelNumber: number): LevelObject[] => {
         };
         level.push(newPlatform);
 
+        let hasHazard = false;
+
         // Add enemies on the new platform
-        const enemyChance = isChallengeLevel ? 0.7 : 0.25 + difficulty * 0.5;
+        const enemyChance = isChallengeLevel ? 0.7 : 0.15 + difficulty * 0.5;
         if (rand() < enemyChance) {
             const enemyType = enemyPool[Math.floor(rand() * enemyPool.length)];
             const def = ENEMY_DEFINITIONS[enemyType];
@@ -147,12 +151,14 @@ const generateLevel = (levelNumber: number): LevelObject[] => {
                     width: def.width,
                     height: def.height
                 });
+                hasHazard = true;
             }
         }
         
         // Add hazards on or around the new platform
-        const hazardChance = isChallengeLevel ? 0.65 : 0.15 + difficulty * 0.45;
+        const hazardChance = isChallengeLevel ? 0.65 : 0.1 + difficulty * 0.45;
         if (rand() < hazardChance) {
+             hasHazard = true;
             // After level 40, swinging blades can appear
             if (rand() > 0.4 || levelNumber < 40) { // Spikes are more common
                 const spikeWidth = Math.min(platformWidth, Math.floor(2 + rand() * 4) * 20);
@@ -194,6 +200,19 @@ const generateLevel = (levelNumber: number): LevelObject[] => {
                     initialAngle: (rand() - 0.5) * Math.PI
                 });
             }
+        }
+        
+        // Add health packs
+        const healthPackChance = 0.15;
+        if (!hasHazard && rand() < healthPackChance) {
+             level.push({
+                id: `hp_${idCounter++}`,
+                type: 'healthPack',
+                x: nextX + (platformWidth / 2) - 12,
+                y: nextY - 30,
+                width: 24,
+                height: 24
+            });
         }
 
         currentX = nextX + platformWidth;

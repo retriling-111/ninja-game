@@ -9,6 +9,7 @@ import LoginScreen from './components/ui/LoginScreen';
 import AboutScreen from './components/ui/AboutScreen';
 import LevelsScreen from './components/ui/LevelsScreen';
 import SettingsScreen from './components/ui/SettingsScreen';
+import LevelCompleteScreen from './components/ui/LevelCompleteScreen';
 import { ALL_LEVELS } from './constants';
 
 const App: React.FC = () => {
@@ -80,11 +81,14 @@ const App: React.FC = () => {
     setGameStatus('loadingData');
   };
 
-  const startGame = useCallback((level: number) => {
+  const startGame = useCallback(async (level: number) => {
     setCurrentLevel(level);
     setGameStatus('playing');
     setGameKey(prev => prev + 1);
-  }, []);
+     if (username) {
+      await savePlayerData(username, deathCount, level);
+    }
+  }, [username, deathCount]);
 
   const goToMainMenu = useCallback(() => setGameStatus('start'), []);
   const showAbout = useCallback(() => setGameStatus('about'), []);
@@ -104,19 +108,18 @@ const App: React.FC = () => {
     }
   }, [deathCount, username, currentLevel]);
 
-  const handleLevelComplete = useCallback(async () => {
-    let nextLevel = currentLevel;
+  const handleLevelComplete = useCallback(() => {
     if (currentLevel < ALL_LEVELS.length) {
-      nextLevel = currentLevel + 1;
-      setCurrentLevel(nextLevel);
-      setGameKey(prev => prev + 1);
+      setGameStatus('levelComplete');
     } else {
       setGameStatus('gameEnd');
     }
-     if (username) {
-      await savePlayerData(username, deathCount, nextLevel);
-    }
-  }, [currentLevel, username, deathCount]);
+  }, [currentLevel]);
+
+  const handleContinueToNextLevel = useCallback(() => {
+    const nextLevel = currentLevel + 1;
+    startGame(nextLevel);
+  }, [currentLevel, startGame]);
 
   const handleResetGame = useCallback(async () => {
     if (window.confirm('Are you sure you want to reset all progress? Your level and death count will be permanently reset to the beginning.')) {
@@ -166,6 +169,8 @@ const App: React.FC = () => {
                 />;
       case 'gameOver':
         return <EndScreen status="gameOver" onRestart={() => startGame(currentLevel)} deathCount={deathCount} />;
+      case 'levelComplete':
+        return <LevelCompleteScreen onNextLevel={handleContinueToNextLevel} level={currentLevel} />;
       case 'gameEnd':
         return <EndScreen status="gameEnd" onRestart={() => startGame(1)} />;
       default:

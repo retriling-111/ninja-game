@@ -19,21 +19,21 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
       <h1 className="text-6xl md:text-8xl font-bold text-red-600 blood-text-shadow">
         Crimson Shinobi
       </h1>
-      <p className="text-xl text-gray-300 mt-4 mb-8">Enter your name to begin your journey.</p>
+      <p className="text-xl text-gray-300 mt-4 mb-8">Enter your name to begin.</p>
       
       <form onSubmit={handleSubmit} className="flex flex-col gap-4 items-center">
         <input
           type="text"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
-          placeholder="Enter your name..."
-          className="px-4 py-2 bg-gray-800 border-2 border-gray-600 text-white font-bold text-lg rounded-sm w-64 text-center focus:outline-none focus:border-red-600"
+          placeholder="Enter your name"
+          className="px-4 py-3 bg-gray-800 border-2 border-gray-600 text-white font-semibold text-lg rounded-xl w-72 text-center focus:outline-none focus:border-red-600 transition-colors"
           maxLength={20}
         />
         <button
           type="submit"
           disabled={!username.trim()}
-          className="px-8 py-3 bg-red-800 hover:bg-red-700 border-2 border-red-600 text-white font-bold text-xl transition-all duration-300 rounded-sm shadow-lg shadow-red-900/50 disabled:bg-gray-700 disabled:border-gray-500 disabled:cursor-not-allowed"
+          className="w-72 px-8 py-3 bg-red-700 hover:bg-red-600 text-white font-semibold text-xl transition-all duration-300 rounded-xl shadow-lg shadow-red-900/50 disabled:bg-gray-700 disabled:border-gray-500 disabled:cursor-not-allowed disabled:shadow-none"
         >
           Enter the Shadows
         </button>

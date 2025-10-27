@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect, useMemo } from 'react';
 import { useGameLoop } from '../hooks/useGameLoop';
 import { useKeyboardInput } from '../hooks/useKeyboardInput';
-import type { PlayerState, LevelObject, GameObject, EnemyState, ProjectileState, EnemyType, SwingingBladeState, SpinningBladeProjectileState } from '../types';
+import type { PlayerState, LevelObject, GameObject, EnemyState, ProjectileState, EnemyType, SwingingBladeState, ShurikenProjectileState } from '../types';
 import { GAME_WIDTH, GAME_HEIGHT, PLAYER, PHYSICS, ALL_LEVELS, ENEMY, ENEMY_DEFINITIONS } from '../constants';
 import Player from './Player';
 import Platform from './Platform';
@@ -9,26 +9,10 @@ import Spike from './Spike';
 import Enemy from './Enemy';
 import Goal from './Goal';
 import Projectile from './Projectile';
+import HealthPack from './HealthPack';
 
 
 // --- NEW IN-FILE COMPONENTS ---
-
-const SpinningBlade: React.FC<{blade: SpinningBladeProjectileState}> = ({ blade }) => {
-    return (
-        <div 
-            style={{
-                left: blade.x,
-                top: blade.y,
-                width: blade.width,
-                height: blade.height,
-            }}
-            className="absolute bg-red-500 rounded-full spinning-blade flex items-center justify-center shadow-lg shadow-red-500/50"
-        >
-            <div className="w-1 h-full bg-red-800 absolute"></div>
-            <div className="w-full h-1 bg-red-800 absolute"></div>
-        </div>
-    )
-}
 
 const SwingingBlade: React.FC<{blade: SwingingBladeState}> = ({ blade }) => {
     const chainStyle: React.CSSProperties = {
@@ -68,12 +52,12 @@ interface PauseMenuProps {
 }
 const PauseMenu: React.FC<PauseMenuProps> = ({ onResume, onRestart, onGoToMainMenu }) => {
     return (
-        <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center z-30">
-            <h2 className="text-5xl font-bold text-red-600 blood-text-shadow mb-8">Paused</h2>
-            <div className="flex flex-col gap-4">
-                <button onClick={onResume} className="px-8 py-3 bg-red-800 hover:bg-red-700 border-2 border-red-600 text-white font-bold text-xl transition-all duration-300 rounded-sm">Resume</button>
-                <button onClick={onRestart} className="px-8 py-3 bg-gray-700 hover:bg-gray-600 border-2 border-gray-500 text-white font-bold text-xl transition-all duration-300 rounded-sm">Restart Level</button>
-                <button onClick={onGoToMainMenu} className="px-8 py-3 bg-gray-700 hover:bg-gray-600 border-2 border-gray-500 text-white font-bold text-xl transition-all duration-300 rounded-sm">Main Menu</button>
+        <div className="absolute inset-0 bg-black/40 ios-backdrop-blur flex flex-col items-center justify-center z-30">
+            <div className="flex flex-col gap-4 p-8 rounded-2xl bg-gray-900/50 border border-white/20">
+                <h2 className="text-5xl font-bold text-red-600 blood-text-shadow mb-4 text-center">Paused</h2>
+                <button onClick={onResume} className="w-64 px-8 py-3 bg-red-700 hover:bg-red-600 text-white font-semibold text-xl transition-all duration-300 rounded-xl">Resume</button>
+                <button onClick={onRestart} className="w-64 px-8 py-3 bg-gray-800 hover:bg-gray-700 border border-gray-600 text-white font-semibold text-lg transition-all duration-300 rounded-xl">Restart Level</button>
+                <button onClick={onGoToMainMenu} className="w-64 px-8 py-3 bg-gray-800 hover:bg-gray-700 border border-gray-600 text-white font-semibold text-lg transition-all duration-300 rounded-xl">Main Menu</button>
             </div>
         </div>
     );
@@ -97,7 +81,7 @@ const MobileControlButton: React.FC<{
             onTouchEnd={() => onKeyRelease(actionKey)}
             onMouseDown={(e) => { e.preventDefault(); onKeyPress(actionKey); }}
             onMouseUp={(e) => { e.preventDefault(); onKeyRelease(actionKey); }}
-            className={`w-16 h-16 bg-gray-500/40 rounded-full flex items-center justify-center text-white text-2xl font-bold active:bg-gray-500/70 select-none ${className}`}
+            className={`w-16 h-16 bg-white/20 rounded-full flex items-center justify-center text-white text-2xl font-bold active:bg-white/40 select-none ${className}`}
             aria-label={`Control for ${actionKey}`}
         >
             {label}
@@ -109,21 +93,18 @@ const MobileControls: React.FC<MobileControlsProps> = ({ onKeyPress, onKeyReleas
     return (
         <div className="absolute inset-0 z-20 md:hidden pointer-events-none">
             {/* Movement Controls */}
-            <div className="absolute bottom-4 left-4 flex items-end gap-2 pointer-events-auto">
+            <div className="absolute bottom-6 left-6 flex items-center gap-4 pointer-events-auto">
                 <MobileControlButton label="←" actionKey="ArrowLeft" onKeyPress={onKeyPress} onKeyRelease={onKeyRelease} />
-                <div className="flex flex-col gap-2">
-                    <MobileControlButton label="↑" actionKey="ArrowUp" onKeyPress={onKeyPress} onKeyRelease={onKeyRelease} />
-                    <MobileControlButton label="↷" actionKey=" " onKeyPress={onKeyPress} onKeyRelease={onKeyRelease} className="text-xl" />
-                </div>
                 <MobileControlButton label="→" actionKey="ArrowRight" onKeyPress={onKeyPress} onKeyRelease={onKeyRelease} />
             </div>
 
             {/* Action Controls */}
-            <div className="absolute bottom-4 right-4 flex items-end gap-2 pointer-events-auto">
+            <div className="absolute bottom-6 right-6 flex items-center gap-4 pointer-events-auto">
                  <MobileControlButton label="S" actionKey="s" onKeyPress={onKeyPress} onKeyRelease={onKeyRelease} />
-                 <MobileControlButton label="W" actionKey="w" onKeyPress={onKeyPress} onKeyRelease={onKeyRelease} />
                  <MobileControlButton label="D" actionKey="d" onKeyPress={onKeyPress} onKeyRelease={onKeyRelease} />
                  <MobileControlButton label="A" actionKey="a" onKeyPress={onKeyPress} onKeyRelease={onKeyRelease} className="w-20 h-20"/>
+                 <MobileControlButton label="↑" actionKey="ArrowUp" onKeyPress={onKeyPress} onKeyRelease={onKeyRelease} className="w-20 h-20"/>
+                 <MobileControlButton label="↷" actionKey=" " onKeyPress={onKeyPress} onKeyRelease={onKeyRelease} className="text-xl" />
             </div>
         </div>
     );
@@ -306,29 +287,45 @@ const HealthBar: React.FC<{ health: number; maxHealth: number; }> = ({ health, m
   const healthIcons = [];
   for (let i = 0; i < maxHealth; i++) {
     healthIcons.push(
-      <div
-        key={i}
-        className={`w-6 h-6 rounded-full border-2 border-red-500 transition-colors duration-200 ${
-          i < health ? 'bg-red-600' : 'bg-transparent'
-        }`}
-      ></div>
+       <div key={i} className="w-8 h-8 relative">
+        <svg viewBox="0 0 24 24" className={`w-full h-full transition-colors duration-200 drop-shadow-lg ${i < health ? 'text-red-600' : 'text-gray-800'}`} fill="currentColor">
+          <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+        </svg>
+        { i < health && <div className="absolute inset-0 bg-red-500/30 blur-sm -z-10"></div> }
+      </div>
     );
   }
 
-  return <div className="flex gap-2">{healthIcons}</div>;
+  return <div className="flex gap-1">{healthIcons}</div>;
 };
 
 const CooldownIndicator: React.FC<{ cooldown: number; maxCooldown: number, label: string }> = ({ cooldown, maxCooldown, label }) => {
     const ready = cooldown <= 0;
-    const fillPercentage = ready ? 100 : Math.max(0, 100 - (cooldown / maxCooldown) * 100);
+    const fillPercentage = ready ? 1 : Math.max(0, 1 - (cooldown / maxCooldown));
+    const circumference = 2 * Math.PI * 14; // 2 * pi * radius (14)
+    const strokeDashoffset = circumference * (1 - fillPercentage);
 
     return (
-        <div className={`relative w-8 h-8 rounded-full border-2 flex items-center justify-center overflow-hidden transition-all duration-200 ${ready ? 'border-red-500 bg-red-900/50' : 'border-gray-600 bg-black/50'}`}>
-            <div
-                className="absolute bottom-0 left-0 w-full bg-red-700/70"
-                style={{ height: `${fillPercentage}%`, transition: fillPercentage > 10 ? 'height 0.1s linear' : 'none' }}
-            />
-            <span className={`font-bold z-10 transition-colors ${ready ? 'text-white' : 'text-gray-400'}`}>
+        <div className={`relative w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 ${ready ? 'bg-red-900/50' : 'bg-black/50'}`}>
+             <svg className="absolute w-full h-full" viewBox="0 0 32 32">
+                <circle
+                    cx="16" cy="16" r="14"
+                    className="stroke-current text-gray-700"
+                    strokeWidth="3"
+                    fill="transparent"
+                />
+                <circle
+                    cx="16" cy="16" r="14"
+                    className="stroke-current text-red-500"
+                    strokeWidth="3"
+                    fill="transparent"
+                    strokeDasharray={circumference}
+                    strokeDashoffset={strokeDashoffset}
+                    style={{ transition: strokeDashoffset > 1 ? 'stroke-dashoffset 0.1s linear' : 'none' }}
+                    transform="rotate(-90 16 16)"
+                />
+            </svg>
+            <span className={`font-semibold z-10 transition-colors ${ready ? 'text-white' : 'text-gray-400'}`}>
                 {label}
             </span>
         </div>
@@ -364,16 +361,15 @@ const Game: React.FC<GameProps> = ({ level, onGameOver, onLevelComplete, onGoToM
     dashTimer: 0,
     doubleJumpUsed: false,
     teleportCooldown: 0,
-    spinningBladeCooldown: 0,
     isShielding: false,
-    shieldTimer: 0,
     shieldCooldown: 0,
+    shieldTimer: 0,
   });
 
   const [enemies, setEnemies] = useState<EnemyState[]>([]);
   const [projectiles, setProjectiles] = useState<ProjectileState[]>([]);
-  const [spinningBlades, setSpinningBlades] = useState<SpinningBladeProjectileState[]>([]);
   const [swingingBlades, setSwingingBlades] = useState<SwingingBladeState[]>([]);
+  const [healthPacks, setHealthPacks] = useState<LevelObject[]>([]);
   const screenShakeRef = useRef(0);
   const isScreenShakeEnabled = useRef(false);
   
@@ -408,7 +404,7 @@ const Game: React.FC<GameProps> = ({ level, onGameOver, onLevelComplete, onGoToM
     isScreenShakeEnabled.current = localStorage.getItem('screenShakeEnabled') === 'true';
 
     const handleKeyDown = (e: KeyboardEvent) => {
-        if (e.key.toLowerCase() === 'p') {
+        if (e.key.toLowerCase() === 'p' || e.key === 'Escape') {
             setIsPaused(prev => !prev);
         }
     };
@@ -419,6 +415,8 @@ const Game: React.FC<GameProps> = ({ level, onGameOver, onLevelComplete, onGoToM
   useEffect(() => {
     const goal = currentLevelData.find(obj => obj.type === 'goal');
     levelWidth.current = goal ? goal.x + 200 : GAME_WIDTH;
+
+    setHealthPacks(currentLevelData.filter(obj => obj.type === 'healthPack'));
 
     const initialEnemies: EnemyState[] = currentLevelData
       .filter(obj => obj.type === 'enemy' && obj.enemyType)
@@ -456,7 +454,6 @@ const Game: React.FC<GameProps> = ({ level, onGameOver, onLevelComplete, onGoToM
     setSwingingBlades(initialBlades);
 
     setProjectiles([]);
-    setSpinningBlades([]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [level]);
 
@@ -495,7 +492,6 @@ const Game: React.FC<GameProps> = ({ level, onGameOver, onLevelComplete, onGoToM
     if (player.invincibilityTimer > 0) player.invincibilityTimer -= deltaTime;
     if (player.dashCooldown > 0) player.dashCooldown -= deltaTime;
     if (player.teleportCooldown > 0) player.teleportCooldown -= deltaTime;
-    if (player.spinningBladeCooldown > 0) player.spinningBladeCooldown -= deltaTime;
     if (player.shieldCooldown > 0) player.shieldCooldown -= deltaTime;
 
     if (player.dashTimer > 0) {
@@ -504,12 +500,14 @@ const Game: React.FC<GameProps> = ({ level, onGameOver, onLevelComplete, onGoToM
             player.isDashing = false;
         }
     }
+
     if (player.shieldTimer > 0) {
-        player.shieldTimer -= deltaTime;
-        if (player.shieldTimer <= 0) {
-            player.isShielding = false;
-        }
+      player.shieldTimer -= deltaTime;
+      if (player.shieldTimer <= 0) {
+        player.isShielding = false;
+      }
     }
+
 
     // --- PLAYER INPUT & MOVEMENT ---
     if (justPressed('d') && player.dashCooldown <= 0 && !player.isDashing) {
@@ -521,28 +519,16 @@ const Game: React.FC<GameProps> = ({ level, onGameOver, onLevelComplete, onGoToM
         triggerShake(5); // Small shake on dash
     }
 
+    if (justPressed('s') && player.shieldCooldown <= 0) {
+      player.isShielding = true;
+      player.shieldTimer = PLAYER.SHIELD_DURATION;
+      player.shieldCooldown = PLAYER.SHIELD_COOLDOWN;
+    }
+
     if (justPressed('a') && player.attackCooldown <= 0) {
         player.isAttacking = true;
         player.attackCooldown = PLAYER.ATTACK_COOLDOWN;
         setTimeout(() => { player.isAttacking = false; }, PLAYER.ATTACK_DURATION);
-    }
-    
-    if (justPressed('w') && player.spinningBladeCooldown <= 0) {
-        player.spinningBladeCooldown = PLAYER.SPINNING_BLADE_COOLDOWN;
-        setSpinningBlades(prev => [...prev, {
-            id: `sbp_${Date.now()}`,
-            x: player.x + player.width / 2 - PLAYER.SPINNING_BLADE_WIDTH / 2,
-            y: player.y + player.height / 2 - PLAYER.SPINNING_BLADE_HEIGHT / 2,
-            width: PLAYER.SPINNING_BLADE_WIDTH,
-            height: PLAYER.SPINNING_BLADE_HEIGHT,
-            vx: player.direction === 'right' ? PLAYER.SPINNING_BLADE_SPEED : -PLAYER.SPINNING_BLADE_SPEED,
-        }]);
-    }
-
-    if (justPressed('s') && player.shieldCooldown <= 0) {
-        player.isShielding = true;
-        player.shieldTimer = PLAYER.SHIELD_DURATION;
-        player.shieldCooldown = PLAYER.SHIELD_COOLDOWN;
     }
     
     if (player.isDashing) {
@@ -619,7 +605,8 @@ const Game: React.FC<GameProps> = ({ level, onGameOver, onLevelComplete, onGoToM
     if (player.y > GAME_HEIGHT + 200) onGameOver();
 
     const handleDamage = () => {
-        if (player.invincibilityTimer <= 0 && !player.isShielding) {
+        if (player.isShielding) return;
+        if (player.invincibilityTimer <= 0) {
             player.health -= 1;
             player.invincibilityTimer = PLAYER.INVINCIBILITY_DURATION;
             triggerShake(15);
@@ -632,6 +619,20 @@ const Game: React.FC<GameProps> = ({ level, onGameOver, onLevelComplete, onGoToM
     levelObjects.filter(obj => obj.type === 'spike').forEach(spike => {
         if (isColliding(player, spike)) handleDamage();
     });
+
+    const collectedPackIds = new Set<string>();
+    for (const pack of healthPacks) {
+        if (isColliding(player, pack)) {
+            if (player.health < PLAYER.INITIAL_HEALTH) {
+                player.health += 1;
+                collectedPackIds.add(pack.id);
+            }
+        }
+    }
+    if (collectedPackIds.size > 0) {
+        setHealthPacks(prev => prev.filter(p => !collectedPackIds.has(p.id)));
+    }
+
 
     const attackBox: GameObject = {
       id: 'attack',
@@ -662,17 +663,6 @@ const Game: React.FC<GameProps> = ({ level, onGameOver, onLevelComplete, onGoToM
         }
     });
     
-    let remainingSpinningBlades = spinningBlades.map(blade => ({...blade, x: blade.x + blade.vx})).filter(blade => blade.x > 0 && blade.x < levelWidth.current);
-    remainingSpinningBlades = remainingSpinningBlades.filter(blade => {
-        const enemyHit = remainingEnemies.find(enemy => isColliding(blade, enemy));
-        if (enemyHit) {
-            remainingEnemies = remainingEnemies.filter(e => e.id !== enemyHit.id);
-            triggerShake(8);
-            return false; // Blade is destroyed on hit
-        }
-        return true;
-    });
-    setSpinningBlades(remainingSpinningBlades);
     setEnemies(remainingEnemies);
 
     let stillActiveProjectiles = [...projectiles, ...newProjectiles]
@@ -754,20 +744,20 @@ const Game: React.FC<GameProps> = ({ level, onGameOver, onLevelComplete, onGoToM
         }}
       >
         {/* Scaled UI */}
-        <div className="absolute top-4 left-4 flex items-center gap-4 p-2 bg-black/50 rounded-md z-10">
+        <div className="absolute top-4 left-4 flex items-center gap-2 p-2 bg-black/40 ios-backdrop-blur rounded-xl border border-white/10 z-10">
           <HealthBar health={playerRef.current.health} maxHealth={PLAYER.INITIAL_HEALTH} />
+          <div className="w-px h-8 bg-white/20 mx-1"></div>
           <CooldownIndicator cooldown={playerRef.current.dashCooldown} maxCooldown={PLAYER.DASH_COOLDOWN} label="D" />
-          <CooldownIndicator cooldown={playerRef.current.spinningBladeCooldown} maxCooldown={PLAYER.SPINNING_BLADE_COOLDOWN} label="W" />
           <CooldownIndicator cooldown={playerRef.current.shieldCooldown} maxCooldown={PLAYER.SHIELD_COOLDOWN} label="S" />
         </div>
 
-        <div className="absolute top-2 left-1/2 -translate-x-1/2 p-2 bg-black/50 rounded-md z-10 text-xl font-bold text-white blood-text-shadow">
+        <div className="absolute top-2 left-1/2 -translate-x-1/2 p-2 px-4 bg-black/40 ios-backdrop-blur rounded-xl border border-white/10 z-10 text-lg font-semibold text-white">
           Level: {level}
         </div>
 
         <button
           onClick={() => setIsPaused(true)}
-          className="absolute top-4 right-4 w-10 h-10 bg-black/50 rounded-md z-10 text-white font-bold text-xl flex items-center justify-center active:bg-black/80"
+          className="absolute top-4 right-4 w-10 h-10 bg-black/40 ios-backdrop-blur rounded-xl border border-white/10 z-10 text-white font-bold text-lg flex items-center justify-center active:bg-black/60"
           aria-label="Pause Game"
         >
           ||
@@ -786,7 +776,7 @@ const Game: React.FC<GameProps> = ({ level, onGameOver, onLevelComplete, onGoToM
           {enemies.map(enemy => <Enemy key={enemy.id} enemy={enemy} />)}
           {projectiles.map(p => <Projectile key={p.id} projectile={p} />)}
           {swingingBlades.map(b => <SwingingBlade key={b.id} blade={b} />)}
-          {spinningBlades.map(b => <SpinningBlade key={b.id} blade={b} />)}
+          {healthPacks.map(pack => <HealthPack key={pack.id} pack={pack} />)}
         </div>
       </div>
     </div>

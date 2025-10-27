@@ -6,11 +6,21 @@ interface SettingsScreenProps {
 }
 
 const SettingsRow: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
-    <div className="flex items-center justify-between w-full py-2">
+    <div className="flex items-center justify-between w-full py-3 border-b border-white/10">
         <label className="text-lg text-gray-300">{label}</label>
         {children}
     </div>
 );
+
+const IOSSwitch: React.FC<{ checked: boolean; onChange: (e: React.ChangeEvent<HTMLInputElement>) => void; }> = ({ checked, onChange }) => {
+    return (
+        <label className="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" checked={checked} onChange={onChange} className="sr-only peer" />
+            <div className={`w-12 h-7 rounded-full transition-colors ${checked ? 'bg-red-600' : 'bg-gray-600'}`}></div>
+            <div className={`absolute top-1 left-1 bg-white w-5 h-5 rounded-full transition-transform transform ${checked ? 'translate-x-5' : 'translate-x-0'} shadow-md`}></div>
+        </label>
+    );
+};
 
 const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack, onResetGame }) => {
   const [isShakeEnabled, setIsShakeEnabled] = useState(false);
@@ -28,53 +38,35 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack, onResetGame }) 
 
 
   return (
-    <div className="text-center animate-fadeIn flex flex-col items-center justify-center max-w-xl w-full">
-      <h1 className="text-5xl md:text-6xl font-bold text-red-600 blood-text-shadow">
-        Settings
-      </h1>
-      
-      <div className="mt-8 p-6 border border-gray-700 rounded-md bg-black/30 w-full flex flex-col gap-4">
-        
-        {/* Audio Settings */}
-        <h2 className="text-2xl font-bold text-white self-start border-b-2 border-red-700 pb-1">Audio</h2>
-        <SettingsRow label="Master Volume">
-            <input type="range" className="w-48" defaultValue="80" />
-        </SettingsRow>
-        <SettingsRow label="Music">
-            <input type="range" className="w-48" defaultValue="60" />
-        </SettingsRow>
-        <SettingsRow label="SFX">
-            <input type="range" className="w-48" defaultValue="90" />
-        </SettingsRow>
-
-        {/* Graphics Settings */}
-        <h2 className="text-2xl font-bold text-white self-start border-b-2 border-red-700 pb-1 mt-4">Graphics</h2>
-         <SettingsRow label="Screen Shake">
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input type="checkbox" checked={isShakeEnabled} onChange={handleShakeToggle} className="sr-only peer" />
-              <div className="w-11 h-6 bg-gray-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-700"></div>
-            </label>
-        </SettingsRow>
-
-        {/* Game Settings */}
-        <h2 className="text-2xl font-bold text-white self-start border-b-2 border-red-700 pb-1 mt-4">Game</h2>
-         <SettingsRow label="Reset Progress">
-            <button 
-              onClick={onResetGame}
-              className="px-4 py-1 bg-red-900 hover:bg-red-800 border border-red-700 text-white font-semibold text-sm transition-all duration-300 rounded-sm"
-            >
-              Reset Game
-            </button>
-        </SettingsRow>
-      </div>
+    <div className="text-center animate-fadeIn flex flex-col items-center justify-center max-w-xl w-full p-4">
+       <div className="bg-black/50 ios-backdrop-blur p-8 rounded-2xl border border-white/10 shadow-2xl w-full">
+          <h1 className="text-5xl md:text-6xl font-bold text-red-600 blood-text-shadow">
+            Settings
+          </h1>
+          
+          <div className="mt-8 w-full flex flex-col">
+            
+            <SettingsRow label="Screen Shake">
+                <IOSSwitch checked={isShakeEnabled} onChange={handleShakeToggle} />
+            </SettingsRow>
+             <SettingsRow label="Reset Progress">
+                <button 
+                  onClick={onResetGame}
+                  className="px-4 py-2 bg-red-900 hover:bg-red-800 border border-red-700 text-white font-semibold text-sm transition-all duration-300 rounded-lg"
+                >
+                  Reset Game
+                </button>
+            </SettingsRow>
+          </div>
 
 
-      <button
-        onClick={onBack}
-        className="mt-12 px-8 py-3 bg-gray-700 hover:bg-gray-600 border-2 border-gray-500 text-white font-bold text-xl transition-all duration-300 rounded-sm"
-      >
-        Back to Menu
-      </button>
+          <button
+            onClick={onBack}
+            className="mt-12 px-8 py-3 bg-gray-800 hover:bg-gray-700 border border-gray-600 text-white font-semibold text-lg transition-all duration-300 rounded-xl"
+          >
+            Back to Menu
+          </button>
+       </div>
     </div>
   );
 };
