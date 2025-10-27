@@ -8,6 +8,7 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "capacitor:init": "npx cap init 'Crimson Shinobi' 'com.shinobi.crimson'",
+    "capacitor:assets": "npx @capacitor/assets generate --iconPath resources/icon.png --splashPath resources/splash.png",
     "capacitor:add-platforms": "npx cap add android && npx cap add ios",
     "capacitor:sync": "npm run build && npx cap sync",
     "capacitor:open:android": "npx cap open android",

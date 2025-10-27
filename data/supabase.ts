@@ -20,7 +20,11 @@ export const savePlayerData = async (username: string, deadCount: number, curren
       .upsert({ ...playerData, updated_at: new Date().toISOString() }, { onConflict: 'username' });
 
     if (error) {
-      console.error('Error saving player data:', error.message);
+      // 'NO_CREDS' is our custom code for when Supabase is not configured.
+      // Don't log this as an error, as offline fallback is expected behavior.
+      if (error.code !== 'NO_CREDS') {
+        console.error('Error saving player data:', error.message);
+      }
       // If Supabase fails, save offline as a fallback
       saveOffline(playerData);
     } else {
@@ -45,8 +49,13 @@ export const loadPlayerData = async (username: string): Promise<PlayerData | nul
     .eq('username', username)
     .single();
 
-  if (error && error.code !== 'PGRST116') { // PGRST116: 'exact one row not found'
-    console.error('Error loading player data:', error.message);
+  if (error) {
+    // 'PGRST116' means no user was found, which is not an error in this context.
+    // 'NO_CREDS' is our custom code for when Supabase is not configured.
+    // In both cases, we can proceed without logging a scary error message.
+    if (error.code !== 'PGRST116' && error.code !== 'NO_CREDS') {
+        console.error('Error loading player data:', error.message);
+    }
     return null;
   }
 
