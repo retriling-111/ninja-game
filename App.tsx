@@ -1,9 +1,11 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import type { GameStatus } from './types';
+import { savePlayerData, loadPlayerData, getOffline, clearOffline } from './data/supabase';
 import Game from './components/Game';
 import StartScreen from './components/ui/StartScreen';
 import EndScreen from './components/ui/EndScreen';
 import LoadingScreen from './components/ui/LoadingScreen';
+import LoginScreen from './components/ui/LoginScreen';
 import AboutScreen from './components/ui/AboutScreen';
 import LevelsScreen from './components/ui/LevelsScreen';
 import SettingsScreen from './components/ui/SettingsScreen';
@@ -11,77 +13,141 @@ import { ALL_LEVELS } from './constants';
 
 const App: React.FC = () => {
   const [gameStatus, setGameStatus] = useState<GameStatus>('loading');
+  const [username, setUsername] = useState<string | null>(null);
   const [currentLevel, setCurrentLevel] = useState(1);
-  const [gameKey, setGameKey] = useState(0); // Used to force remounting the Game component
+  const [deathCount, setDeathCount] = useState(0);
+  const [gameKey, setGameKey] = useState(0);
+
+  // --- OFFLINE SYNC ---
+  const syncOfflineData = useCallback(async () => {
+    const offlineData = getOffline();
+    if (offlineData && navigator.onLine) {
+      console.log('Online, attempting to sync offline data...');
+      await savePlayerData(offlineData.username, offlineData.dead_count, offlineData.current_level);
+      clearOffline();
+      console.log('Offline data synced.');
+    }
+  }, []);
 
   useEffect(() => {
-    if (gameStatus === 'loading') {
-      const timer = setTimeout(() => {
-        setGameStatus('start');
-      }, 2000); // Simulate 2-second load time
-      return () => clearTimeout(timer);
-    }
-  }, [gameStatus]);
+    window.addEventListener('online', syncOfflineData);
+    return () => {
+      window.removeEventListener('online', syncOfflineData);
+    };
+  }, [syncOfflineData]);
 
-  const startGame = useCallback((level: number = 1) => {
+
+  // --- INITIAL LOAD ---
+  useEffect(() => {
+    const savedUsername = localStorage.getItem('crimsonShinobi_username');
+    if (savedUsername) {
+      setUsername(savedUsername);
+      setGameStatus('loadingData');
+    } else {
+      setGameStatus('login');
+    }
+  }, []);
+
+  // --- DATA LOADING ---
+  useEffect(() => {
+    const loadData = async () => {
+      if (gameStatus === 'loadingData' && username) {
+        const data = await loadPlayerData(username);
+        if (data) {
+          setCurrentLevel(data.current_level);
+          setDeathCount(data.dead_count);
+        } else {
+          // If no data on server, check offline or start fresh
+          const offlineData = getOffline();
+           if(offlineData && offlineData.username === username) {
+             setCurrentLevel(offlineData.current_level);
+             setDeathCount(offlineData.dead_count);
+           } else {
+             setCurrentLevel(1);
+             setDeathCount(0);
+           }
+        }
+        setGameStatus('start');
+      }
+    };
+    loadData();
+  }, [gameStatus, username]);
+
+  // --- GAME STATE HANDLERS ---
+  const handleLogin = (name: string) => {
+    setUsername(name);
+    localStorage.setItem('crimsonShinobi_username', name);
+    setGameStatus('loadingData');
+  };
+
+  const startGame = useCallback((level: number) => {
     setCurrentLevel(level);
     setGameStatus('playing');
     setGameKey(prev => prev + 1);
   }, []);
 
-  const goToMainMenu = useCallback(() => {
-    setGameStatus('start');
-    // We don't reset the level here so the start screen shows the last played level
-  }, []);
-  
-  const showAbout = useCallback(() => {
-    setGameStatus('about');
-  }, []);
-
-  const showLevels = useCallback(() => {
-    setGameStatus('levels');
-  }, []);
-
-  const showSettings = useCallback(() => {
-    setGameStatus('settings');
-  }, []);
-
+  const goToMainMenu = useCallback(() => setGameStatus('start'), []);
+  const showAbout = useCallback(() => setGameStatus('about'), []);
+  const showLevels = useCallback(() => setGameStatus('levels'), []);
+  const showSettings = useCallback(() => setGameStatus('settings'), []);
   const restartCurrentLevel = useCallback(() => {
     setGameStatus('playing');
     setGameKey(prev => prev + 1);
   }, []);
 
-  const handleGameOver = useCallback(() => {
+  const handleGameOver = useCallback(async () => {
+    const newDeathCount = deathCount + 1;
+    setDeathCount(newDeathCount);
     setGameStatus('gameOver');
-  }, []);
+    if (username) {
+      await savePlayerData(username, newDeathCount, currentLevel);
+    }
+  }, [deathCount, username, currentLevel]);
 
-  const handleLevelComplete = useCallback(() => {
+  const handleLevelComplete = useCallback(async () => {
+    let nextLevel = currentLevel;
     if (currentLevel < ALL_LEVELS.length) {
-      setCurrentLevel(prev => prev + 1);
+      nextLevel = currentLevel + 1;
+      setCurrentLevel(nextLevel);
       setGameKey(prev => prev + 1);
     } else {
       setGameStatus('gameEnd');
     }
-  }, [currentLevel]);
-
-  const handleResetGame = useCallback(() => {
-    if (window.confirm('Are you sure you want to reset all progress? You will start back at Level 1.')) {
-      setCurrentLevel(1);
-      setGameStatus('start');
+     if (username) {
+      await savePlayerData(username, deathCount, nextLevel);
     }
-  }, []);
+  }, [currentLevel, username, deathCount]);
+
+  const handleResetGame = useCallback(async () => {
+    if (window.confirm('Are you sure you want to reset all progress? Your level and death count will be permanently reset to the beginning.')) {
+      const newLevel = 1;
+      const newDeaths = 0;
+      setCurrentLevel(newLevel);
+      setDeathCount(newDeaths);
+      setGameStatus('start');
+      if (username) {
+        await savePlayerData(username, newDeaths, newLevel);
+      }
+      clearOffline();
+    }
+  }, [username]);
 
   const renderContent = () => {
     switch (gameStatus) {
       case 'loading':
+      case 'loadingData':
         return <LoadingScreen />;
+      case 'login':
+        return <LoginScreen onLogin={handleLogin} />;
       case 'start':
         return <StartScreen 
                   onStart={() => startGame(currentLevel)} 
                   onShowAbout={showAbout} 
                   onShowLevels={showLevels}
                   onShowSettings={showSettings}
-                  currentLevel={currentLevel} 
+                  currentLevel={currentLevel}
+                  deathCount={deathCount}
+                  username={username || ''}
                 />;
       case 'about':
         return <AboutScreen onBack={goToMainMenu} />;
@@ -99,9 +165,7 @@ const App: React.FC = () => {
                   onRestartCurrentLevel={restartCurrentLevel}
                 />;
       case 'gameOver':
-        return <EndScreen status="gameOver" onRestart={() => startGame(currentLevel)} />;
-      case 'win': // This case might be deprecated in favor of gameEnd
-        return <EndScreen status="win" onRestart={() => startGame(1)} />;
+        return <EndScreen status="gameOver" onRestart={() => startGame(currentLevel)} deathCount={deathCount} />;
       case 'gameEnd':
         return <EndScreen status="gameEnd" onRestart={() => startGame(1)} />;
       default:

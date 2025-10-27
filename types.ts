@@ -1,4 +1,4 @@
-export type GameStatus = 'loading' | 'start' | 'playing' | 'gameOver' | 'win' | 'about' | 'levels' | 'settings' | 'gameEnd';
+export type GameStatus = 'loading' | 'login' | 'loadingData' | 'start' | 'playing' | 'gameOver' | 'win' | 'about' | 'levels' | 'settings' | 'gameEnd';
 
 export interface GameObject {
   id: string;

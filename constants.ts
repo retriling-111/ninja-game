@@ -89,12 +89,8 @@ const generateLevel = (levelNumber: number): LevelObject[] => {
 
     const isChallengeLevel = levelNumber > 20 && (levelNumber - 1) % 20 === 0;
 
-    // Difficulty scales from 0 to 1, reaching max difficulty around level 200
-    // Challenge levels get a significant difficulty spike
-    let difficulty = Math.min(1, levelNumber / 200); 
-    if (isChallengeLevel) {
-        difficulty = Math.min(1, (levelNumber + 40) / 200);
-    }
+    // User requested maximum difficulty for all levels.
+    const difficulty = 1.0;
 
     let currentX = 0;
     let currentY = GAME_HEIGHT - 100;
