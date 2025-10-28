@@ -285,7 +285,7 @@ const updateNinja: AiUpdateFunction = (enemy, player, deltaTime, spawnProjectile
 };
 
 const updateBoss: AiUpdateFunction = (enemy, player, deltaTime, spawnProjectile, spawnEnemy) => {
-    const updatedEnemy = { ...enemy };
+    let updatedEnemy = { ...enemy };
 
     if (updatedEnemy.attackCooldown > 0) updatedEnemy.attackCooldown -= deltaTime;
     if (updatedEnemy.aiTimer > 0) updatedEnemy.aiTimer -= deltaTime;
@@ -293,9 +293,10 @@ const updateBoss: AiUpdateFunction = (enemy, player, deltaTime, spawnProjectile,
     const directionToPlayer = player.x + player.width / 2 < updatedEnemy.x + updatedEnemy.width / 2 ? 'left' : 'right';
     updatedEnemy.direction = directionToPlayer;
 
-    if (updatedEnemy.attackCooldown <= 0) {
-        updatedEnemy.attackCooldown = enemy.attackCooldown;
+    if (updatedEnemy.attackCooldown <= 0 && updatedEnemy.aiState === 'patrolling') {
+        updatedEnemy.attackCooldown = updatedEnemy.baseAttackCooldown!;
         const attackType = Math.random();
+        
         if (attackType < 0.4) { 
             updatedEnemy.aiState = 'boss_barrage';
             updatedEnemy.aiTimer = 1000;
@@ -303,42 +304,92 @@ const updateBoss: AiUpdateFunction = (enemy, player, deltaTime, spawnProjectile,
              updatedEnemy.aiState = 'boss_teleport_slam';
              updatedEnemy.aiTimer = 500;
              updatedEnemy.isSlamming = false;
+             updatedEnemy.isChargingSlam = false;
         } else {
             updatedEnemy.aiState = 'boss_spawn_minions';
             updatedEnemy.aiTimer = 200;
         }
     }
+    
+    switch(updatedEnemy.aiState) {
+        case 'boss_barrage':
+            if (updatedEnemy.aiTimer > 0) {
+                if (Math.floor(updatedEnemy.aiTimer / 100) % 2 === 0) { // Shoots in bursts
+                    spawnProjectile({
+                        x: updatedEnemy.x + (directionToPlayer === 'right' ? updatedEnemy.width : -ENEMY.PROJECTILE_WIDTH),
+                        y: updatedEnemy.y + (updatedEnemy.height * (0.2 + Math.random() * 0.6)),
+                        width: ENEMY.PROJECTILE_WIDTH * 1.5,
+                        height: ENEMY.PROJECTILE_HEIGHT * 1.5,
+                        vx: (directionToPlayer === 'right' ? 1 : -1) * (ENEMY.PROJECTILE_SPEED + 2),
+                    });
+                }
+            } else {
+                updatedEnemy.aiState = 'patrolling';
+            }
+            break;
 
-    if (updatedEnemy.aiState === 'boss_barrage' && updatedEnemy.aiTimer > 0) {
-        if (Math.random() < 0.1) { // Chance to shoot a projectile each frame during barrage
-             spawnProjectile({
-                x: updatedEnemy.x + (directionToPlayer === 'right' ? updatedEnemy.width : -ENEMY.PROJECTILE_WIDTH),
-                y: updatedEnemy.y + (updatedEnemy.height * (0.2 + Math.random() * 0.6)),
-                width: ENEMY.PROJECTILE_WIDTH * 1.5,
-                height: ENEMY.PROJECTILE_HEIGHT * 1.5,
-                vx: (directionToPlayer === 'right' ? 1 : -1) * (ENEMY.PROJECTILE_SPEED + 2),
+        case 'boss_teleport_slam':
+            if (updatedEnemy.aiTimer <= 0 && !updatedEnemy.isChargingSlam && !updatedEnemy.isSlamming) {
+                const targetX = player.x;
+                updatedEnemy.x = Math.max(0, Math.min(targetX - updatedEnemy.width / 2, GAME_WIDTH - updatedEnemy.width));
+                updatedEnemy.y = -updatedEnemy.height; // Teleport offscreen above player
+                updatedEnemy.isChargingSlam = true;
+                updatedEnemy.aiTimer = 700;
+            } else if (updatedEnemy.isChargingSlam && updatedEnemy.aiTimer <= 0) {
+                updatedEnemy.isChargingSlam = false;
+                updatedEnemy.isSlamming = true;
+                updatedEnemy.vy = 45; // Slam speed
+            }
+            break;
+
+        case 'boss_spawn_minions':
+            if(updatedEnemy.aiTimer <= 0) {
+                 spawnEnemy({
+                    x: updatedEnemy.x - 40, y: updatedEnemy.y + updatedEnemy.height - 35,
+                    width: 35, height: 35, type: 'patrol',
+                    direction: 'left', attackCooldown: 0, aiState: 'patrolling',
+                    vx: -ENEMY_DEFINITIONS.patrol.patrolSpeed, initialX: updatedEnemy.x - 40, meleeAttackTimer: 0,
+                    aiTimer: 0,
+                });
+                spawnEnemy({
+                    x: updatedEnemy.x + updatedEnemy.width + 5, y: updatedEnemy.y + updatedEnemy.height - 35,
+                    width: 35, height: 35, type: 'patrol',
+                    direction: 'right', attackCooldown: 0, aiState: 'patrolling',
+                    vx: ENEMY_DEFINITIONS.patrol.patrolSpeed, initialX: updatedEnemy.x  + updatedEnemy.width + 5, meleeAttackTimer: 0,
+                    aiTimer: 0,
+                });
+                updatedEnemy.aiState = 'patrolling';
+            }
+            break;
+    }
+
+    if (updatedEnemy.isSlamming) {
+        updatedEnemy.y! += updatedEnemy.vy!;
+        const groundY = GAME_HEIGHT - 40 - updatedEnemy.height;
+        if (updatedEnemy.y! >= groundY) {
+            updatedEnemy.y = groundY;
+            updatedEnemy.isSlamming = false;
+            updatedEnemy.vy = 0;
+            updatedEnemy.aiState = 'patrolling';
+            
+            const shockwaveY = GAME_HEIGHT - 40 - 50; // Shockwave height is 50
+            spawnProjectile({
+                x: updatedEnemy.x + updatedEnemy.width / 2,
+                y: shockwaveY,
+                width: 15,
+                height: 50,
+                vx: -12,
+                visualType: 'shockwave',
+            });
+            spawnProjectile({
+                x: updatedEnemy.x + updatedEnemy.width / 2,
+                y: shockwaveY,
+                width: 15,
+                height: 50,
+                vx: 12,
+                visualType: 'shockwave',
             });
         }
-    } else if (updatedEnemy.aiState === 'boss_teleport_slam' && updatedEnemy.aiTimer <= 0 && !updatedEnemy.isSlamming) {
-         const targetX = player.x + (player.direction === 'right' ? -150 : 150);
-         updatedEnemy.x = Math.max(0, Math.min(targetX, GAME_WIDTH - updatedEnemy.width));
-         updatedEnemy.isSlamming = true; // Visual cue for slam can be added here
-    } else if (updatedEnemy.aiState === 'boss_spawn_minions' && updatedEnemy.aiTimer <= 0) {
-        spawnEnemy({
-            x: updatedEnemy.x - 40, y: updatedEnemy.y + updatedEnemy.height - 35,
-            width: 35, height: 35, type: 'patrol',
-            direction: 'left', attackCooldown: 0, aiState: 'patrolling',
-            vx: -ENEMY_DEFINITIONS.patrol.patrolSpeed, initialX: updatedEnemy.x - 40, meleeAttackTimer: 0,
-            aiTimer: 0,
-        });
-        spawnEnemy({
-            x: updatedEnemy.x + updatedEnemy.width + 5, y: updatedEnemy.y + updatedEnemy.height - 35,
-            width: 35, height: 35, type: 'patrol',
-            direction: 'right', attackCooldown: 0, aiState: 'patrolling',
-            vx: ENEMY_DEFINITIONS.patrol.patrolSpeed, initialX: updatedEnemy.x  + updatedEnemy.width + 5, meleeAttackTimer: 0,
-            aiTimer: 0,
-        });
-        updatedEnemy.aiState = 'patrolling'; // Reset state after spawning
     }
     
     return updatedEnemy;
@@ -421,7 +472,6 @@ const CooldownIndicator: React.FC<{ cooldown: number; maxCooldown: number, label
 const Game: React.FC<GameProps> = ({ level, onGameOver, onLevelComplete, onGoToMainMenu, onRestartCurrentLevel }) => {
   const currentLevelData = useMemo(() => ALL_LEVELS[level - 1] || ALL_LEVELS[0], [level]);
   const [isPaused, setIsPaused] = useState(false);
-  // Fix: Cannot find name 'setFrame'.
   const [, setFrame] = useState(0);
   const { device } = useResponsive();
   const isDesktop = device === 'desktop';
@@ -479,7 +529,6 @@ const Game: React.FC<GameProps> = ({ level, onGameOver, onLevelComplete, onGoToM
   }, [currentLevelData]);
 
   // Screen orientation lock
-  // Fix: Property 'lock' does not exist on type 'ScreenOrientation'.
   useEffect(() => {
     const lockOrientation = async () => {
       try {
@@ -490,13 +539,15 @@ const Game: React.FC<GameProps> = ({ level, onGameOver, onLevelComplete, onGoToM
         console.error('Failed to lock screen orientation:', error);
       }
     };
-    lockOrientation();
+    if (device !== 'desktop') {
+      lockOrientation();
+    }
     return () => {
-      if (screen.orientation && (screen.orientation as any).unlock) {
+      if (screen.orientation && (screen.orientation as any).unlock && device !== 'desktop') {
         (screen.orientation as any).unlock();
       }
     };
-  }, []);
+  }, [device]);
   
   // Responsive scaling
   useEffect(() => {
@@ -540,11 +591,13 @@ const Game: React.FC<GameProps> = ({ level, onGameOver, onLevelComplete, onGoToM
           .find(p => Math.abs((obj.y + obj.height) - p.y) < 5 && obj.x < p.x + p.width && obj.x + obj.width > p.x );
 
         const health = bossStats ? bossStats.health : def.health;
+        const baseAttackCooldown = bossStats ? bossStats.attackCooldown : (def.cooldown || 0);
 
         return {
           id: obj.id, x: obj.x, y: obj.y, width: def.width, height: def.height, type: obj.enemyType!,
           direction: 'left', 
-          attackCooldown: bossStats ? bossStats.attackCooldown : 0,
+          attackCooldown: baseAttackCooldown,
+          baseAttackCooldown: baseAttackCooldown,
           aiState: 'patrolling',
           patrolBounds: platformBeneath ? { left: platformBeneath.x, right: platformBeneath.x + platformBeneath.width - obj.width } : undefined,
           vx: (obj.enemyType?.startsWith('patrol') || obj.enemyType === 'ninja') ? -(def.patrolSpeed || 0) : 0,

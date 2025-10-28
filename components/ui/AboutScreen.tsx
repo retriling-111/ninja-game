@@ -40,6 +40,7 @@ const AboutScreen: React.FC<AboutScreenProps> = ({ onBack }) => {
                <h2 className="text-xl font-bold text-white mb-2">Support & Feedback</h2>
                <p>For feedback or bug reports, find me on Telegram:</p>
                <a href="https://t.me/IamJustALoser" target="_blank" rel="noopener noreferrer" className="text-red-500 hover:text-red-400">@IamJustALoser</a>
+               <a href="mailto:retriling123@gmail.com" target="_blank" rel="noopener noreferrer" className="text-red-500 hover:text-red-400">retriling123@gmail.com</a>
             </div>
         </div>
 

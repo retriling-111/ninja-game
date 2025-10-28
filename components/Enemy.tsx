@@ -7,6 +7,7 @@ interface EnemyProps {
 
 const Enemy: React.FC<EnemyProps> = ({ enemy }) => {
   const isBoss = enemy.type === 'boss_1';
+  const isCharging = enemy.isChargingSlam;
 
   // --- Biome specific styles ---
   let tintClass = '';
@@ -55,8 +56,8 @@ const Enemy: React.FC<EnemyProps> = ({ enemy }) => {
   );
 
   const bossBody = (
-     <div className="w-full h-full bg-black border-4 border-red-900 rounded-lg p-2 flex flex-col items-center justify-around">
-        <div className="w-1/2 h-1/4 bg-red-700 rounded-full enemy-glow"></div>
+     <div className={`w-full h-full bg-black border-4 border-red-900 rounded-lg p-2 flex flex-col items-center justify-around transition-transform duration-100 ${isCharging ? 'scale-105 animate-pulse' : ''}`}>
+        <div className={`w-1/2 h-1/4 bg-red-700 rounded-full enemy-glow transition-all ${isCharging ? 'shadow-[0_0_25px_#f00]' : ''}`}></div>
         <div className="w-full h-1/2 bg-gray-800 rounded-sm"></div>
      </div>
   );

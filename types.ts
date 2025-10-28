@@ -54,18 +54,22 @@ export interface EnemyState extends GameObject {
     aiState: AiState;
     patrolBounds?: { left: number; right: number };
     vx: number;
+    vy?: number;
     initialX: number;
     meleeAttackTimer: number; // Ninja specific
     health: number;
     maxHealth: number;
     aiTimer: number; // General purpose timer for AI state changes
     isSlamming?: boolean;
+    isChargingSlam?: boolean;
+    baseAttackCooldown?: number;
 }
 
 export interface ProjectileState extends GameObject {
     vx: number;
     vy?: number;
     type?: 'enemy' | 'player_shuriken';
+    visualType?: 'default' | 'shockwave';
 }
 
 export interface ShurikenProjectileState extends GameObject {

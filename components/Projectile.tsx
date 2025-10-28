@@ -1,11 +1,25 @@
 import React from 'react';
-import type { GameObject } from '../types';
+import type { ProjectileState } from '../types';
 
 interface ProjectileProps {
-  projectile: GameObject;
+  projectile: ProjectileState;
 }
 
 const Projectile: React.FC<ProjectileProps> = ({ projectile }) => {
+  if (projectile.visualType === 'shockwave') {
+    return (
+      <div
+        style={{
+          left: projectile.x,
+          top: projectile.y,
+          width: projectile.width,
+          height: projectile.height,
+        }}
+        className="absolute bg-red-500 rounded-sm shadow-[0_0_15px_#f00,0_0_8px_#ef4444]"
+      />
+    );
+  }
+
   return (
     <div
       style={{
