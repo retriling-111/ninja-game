@@ -6,6 +6,15 @@ interface EnemyProps {
 }
 
 const Enemy: React.FC<EnemyProps> = ({ enemy }) => {
+  const isBoss = enemy.type === 'boss_1';
+
+  // --- Biome specific styles ---
+  let tintClass = '';
+  if (enemy.type === 'patrol_fire') {
+    tintClass = 'hue-rotate-[-30deg] saturate-150';
+  } else if (enemy.type === 'shooter_ice') {
+    tintClass = 'hue-rotate-[180deg] saturate-150 brightness-110';
+  }
 
   const chargerHorns = (
     <>
@@ -45,6 +54,14 @@ const Enemy: React.FC<EnemyProps> = ({ enemy }) => {
     </div>
   );
 
+  const bossBody = (
+     <div className="w-full h-full bg-black border-4 border-red-900 rounded-lg p-2 flex flex-col items-center justify-around">
+        <div className="w-1/2 h-1/4 bg-red-700 rounded-full enemy-glow"></div>
+        <div className="w-full h-1/2 bg-gray-800 rounded-sm"></div>
+     </div>
+  );
+
+
   let animationClass = '';
   if (enemy.type === 'ninja') {
     if (enemy.meleeAttackTimer > 0) {
@@ -57,8 +74,10 @@ const Enemy: React.FC<EnemyProps> = ({ enemy }) => {
   }
 
   const containerClass = `absolute flex items-center justify-center transition-transform duration-200 ${
-    enemy.type === 'ninja' ? '' : 'bg-gray-900 rounded-lg'
-  } ${animationClass}`;
+    (enemy.type === 'ninja' || isBoss) ? '' : 'bg-gray-900 rounded-lg'
+  } ${animationClass} ${tintClass}`;
+  
+  const healthPercentage = isBoss ? (enemy.health! / enemy.maxHealth!) * 100 : 0;
 
   return (
     <div
@@ -67,14 +86,33 @@ const Enemy: React.FC<EnemyProps> = ({ enemy }) => {
         top: enemy.y,
         width: enemy.width,
         height: enemy.height,
-        transform: enemy.direction === 'left' ? 'scaleX(-1)' : 'scaleX(1)',
       }}
-      className={containerClass}
+      className="relative"
     >
-      {enemy.type === 'charger' && chargerHorns}
-      {enemy.type === 'shooter' && shooterEye}
-      {enemy.type === 'patrol' && patrolBody}
-      {enemy.type === 'ninja' && ninjaBody}
+      {isBoss && (
+          <div className="absolute -top-5 left-0 w-full h-3 bg-gray-800 border border-gray-600 rounded-full">
+              <div 
+                className="h-full bg-red-600 rounded-full transition-all duration-300"
+                style={{ width: `${healthPercentage}%`}}
+              ></div>
+          </div>
+      )}
+      <div
+        style={{
+          transform: enemy.direction === 'left' ? 'scaleX(-1)' : 'scaleX(1)',
+          width: '100%',
+          height: '100%',
+        }}
+        className={containerClass}
+      >
+        {enemy.type === 'charger' && chargerHorns}
+        {enemy.type === 'shooter' && shooterEye}
+        {enemy.type === 'shooter_ice' && shooterEye}
+        {enemy.type === 'patrol' && patrolBody}
+        {enemy.type === 'patrol_fire' && patrolBody}
+        {enemy.type === 'ninja' && ninjaBody}
+        {isBoss && bossBody}
+      </div>
     </div>
   );
 };

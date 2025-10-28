@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect, useMemo } from 'react';
 import { useGameLoop } from '../hooks/useGameLoop';
 import { useKeyboardInput } from '../hooks/useKeyboardInput';
 import type { PlayerState, LevelObject, GameObject, EnemyState, ProjectileState, EnemyType, SwingingBladeState, ShurikenProjectileState } from '../types';
-import { GAME_WIDTH, GAME_HEIGHT, PLAYER, PHYSICS, ALL_LEVELS, ENEMY, ENEMY_DEFINITIONS } from '../constants';
+import { GAME_WIDTH, GAME_HEIGHT, PLAYER, PHYSICS, ALL_LEVELS, ENEMY, ENEMY_DEFINITIONS, getBiomeForLevel, BOSS_LEVEL_INTERVAL, getBossStats } from '../constants';
 import Player from './Player';
 import Platform from './Platform';
 import Spike from './Spike';
@@ -10,9 +10,25 @@ import Enemy from './Enemy';
 import Goal from './Goal';
 import Projectile from './Projectile';
 import HealthPack from './HealthPack';
+import { useResponsive } from '../hooks/useResponsive';
 
 
 // --- NEW IN-FILE COMPONENTS ---
+const Shuriken: React.FC<{shuriken: ShurikenProjectileState}> = ({ shuriken }) => (
+    <div
+      style={{
+        left: shuriken.x,
+        top: shuriken.y,
+        width: ENEMY.SHURIKEN_WIDTH,
+        height: ENEMY.SHURIKEN_HEIGHT,
+        transform: `rotate(${shuriken.rotation}deg)`,
+      }}
+      className="absolute flex items-center justify-center"
+    >
+        <div className="w-full h-1/3 bg-gray-300 absolute rounded-sm shadow-lg shadow-black"></div>
+        <div className="w-1/3 h-full bg-gray-300 absolute rounded-sm shadow-lg shadow-black"></div>
+    </div>
+);
 
 const SwingingBlade: React.FC<{blade: SwingingBladeState}> = ({ blade }) => {
     const chainStyle: React.CSSProperties = {
@@ -75,13 +91,14 @@ const MobileControlButton: React.FC<{
     onKeyRelease: (key: string) => void;
     className?: string;
 }> = ({ label, actionKey, onKeyPress, onKeyRelease, className }) => {
+      
     return (
         <button
             onTouchStart={() => onKeyPress(actionKey)}
             onTouchEnd={() => onKeyRelease(actionKey)}
             onMouseDown={(e) => { e.preventDefault(); onKeyPress(actionKey); }}
             onMouseUp={(e) => { e.preventDefault(); onKeyRelease(actionKey); }}
-            className={`w-16 h-16 bg-white/20 rounded-full flex items-center justify-center text-white text-2xl font-bold active:bg-white/40 select-none ${className}`}
+            className={`w-16 h-16 flex items-center justify-center bg-white/10 rounded-full text-white text-3xl font-bold active:bg-white/20 select-none ${className}`}
             aria-label={`Control for ${actionKey}`}
         >
             {label}
@@ -91,20 +108,20 @@ const MobileControlButton: React.FC<{
 
 const MobileControls: React.FC<MobileControlsProps> = ({ onKeyPress, onKeyRelease }) => {
     return (
-        <div className="absolute inset-0 z-20 md:hidden pointer-events-none">
+        <div className="absolute inset-0 z-20 pointer-events-none">
             {/* Movement Controls */}
-            <div className="absolute bottom-6 left-6 flex items-center gap-4 pointer-events-auto">
+            <div className="absolute bottom-4 left-4 flex items-center gap-4 pointer-events-auto">
                 <MobileControlButton label="←" actionKey="ArrowLeft" onKeyPress={onKeyPress} onKeyRelease={onKeyRelease} />
                 <MobileControlButton label="→" actionKey="ArrowRight" onKeyPress={onKeyPress} onKeyRelease={onKeyRelease} />
             </div>
 
             {/* Action Controls */}
-            <div className="absolute bottom-6 right-6 flex items-center gap-4 pointer-events-auto">
-                 <MobileControlButton label="S" actionKey="s" onKeyPress={onKeyPress} onKeyRelease={onKeyRelease} />
-                 <MobileControlButton label="D" actionKey="d" onKeyPress={onKeyPress} onKeyRelease={onKeyRelease} />
-                 <MobileControlButton label="A" actionKey="a" onKeyPress={onKeyPress} onKeyRelease={onKeyRelease} className="w-20 h-20"/>
-                 <MobileControlButton label="↑" actionKey="ArrowUp" onKeyPress={onKeyPress} onKeyRelease={onKeyRelease} className="w-20 h-20"/>
-                 <MobileControlButton label="↷" actionKey=" " onKeyPress={onKeyPress} onKeyRelease={onKeyRelease} className="text-xl" />
+            <div className="absolute bottom-4 right-4 flex items-end gap-3 pointer-events-auto">
+                 <MobileControlButton label="S" actionKey="s" onKeyPress={onKeyPress} onKeyRelease={onKeyRelease} className="w-14 h-14" />
+                 <MobileControlButton label="D" actionKey="d" onKeyPress={onKeyPress} onKeyRelease={onKeyRelease} className="w-14 h-14" />
+                 <MobileControlButton label="W" actionKey="w" onKeyPress={onKeyPress} onKeyRelease={onKeyRelease} className="w-14 h-14" />
+                 <MobileControlButton label="A" actionKey="a" onKeyPress={onKeyPress} onKeyRelease={onKeyRelease} />
+                 <MobileControlButton label="↑" actionKey="ArrowUp" onKeyPress={onKeyPress} onKeyRelease={onKeyRelease} className="w-20 h-20 text-4xl"/>
             </div>
         </div>
     );
@@ -122,17 +139,19 @@ const isColliding = (a: GameObject, b: GameObject) => {
 };
 
 // --- MODULAR AI LOGIC ---
+type EnemySpawnFunction = (enemyData: Omit<EnemyState, 'id' | 'health' | 'maxHealth'>) => void;
 
 type AiUpdateFunction = (
   enemy: EnemyState,
   player: PlayerState,
   deltaTime: number,
-  spawnProjectile: (projectile: Omit<ProjectileState, 'id'>) => void
+  spawnProjectile: (projectile: Omit<ProjectileState, 'id'>) => void,
+  spawnEnemy: EnemySpawnFunction,
 ) => EnemyState;
 
 const updatePatrol: AiUpdateFunction = (enemy, _player, _deltaTime, _spawnProjectile) => {
     const updatedEnemy = { ...enemy };
-    const def = ENEMY_DEFINITIONS.patrol;
+    const def = ENEMY_DEFINITIONS[enemy.type];
 
     if (updatedEnemy.patrolBounds) {
         if (updatedEnemy.x <= updatedEnemy.patrolBounds.left && updatedEnemy.vx < 0) {
@@ -175,7 +194,7 @@ const updateCharger: AiUpdateFunction = (enemy, player, deltaTime, _spawnProject
 
 const updateShooter: AiUpdateFunction = (enemy, player, deltaTime, spawnProjectile) => {
     const updatedEnemy = { ...enemy };
-    const def = ENEMY_DEFINITIONS.shooter;
+    const def = ENEMY_DEFINITIONS[enemy.type];
 
     if (updatedEnemy.attackCooldown > 0) updatedEnemy.attackCooldown -= deltaTime;
 
@@ -265,11 +284,75 @@ const updateNinja: AiUpdateFunction = (enemy, player, deltaTime, spawnProjectile
     return updatedEnemy;
 };
 
-const ENEMY_AI_UPDATES: Record<EnemyType, AiUpdateFunction> = {
+const updateBoss: AiUpdateFunction = (enemy, player, deltaTime, spawnProjectile, spawnEnemy) => {
+    const updatedEnemy = { ...enemy };
+
+    if (updatedEnemy.attackCooldown > 0) updatedEnemy.attackCooldown -= deltaTime;
+    if (updatedEnemy.aiTimer > 0) updatedEnemy.aiTimer -= deltaTime;
+
+    const directionToPlayer = player.x + player.width / 2 < updatedEnemy.x + updatedEnemy.width / 2 ? 'left' : 'right';
+    updatedEnemy.direction = directionToPlayer;
+
+    if (updatedEnemy.attackCooldown <= 0) {
+        updatedEnemy.attackCooldown = enemy.attackCooldown;
+        const attackType = Math.random();
+        if (attackType < 0.4) { 
+            updatedEnemy.aiState = 'boss_barrage';
+            updatedEnemy.aiTimer = 1000;
+        } else if (attackType < 0.75) { 
+             updatedEnemy.aiState = 'boss_teleport_slam';
+             updatedEnemy.aiTimer = 500;
+             updatedEnemy.isSlamming = false;
+        } else {
+            updatedEnemy.aiState = 'boss_spawn_minions';
+            updatedEnemy.aiTimer = 200;
+        }
+    }
+
+    if (updatedEnemy.aiState === 'boss_barrage' && updatedEnemy.aiTimer > 0) {
+        if (Math.random() < 0.1) { // Chance to shoot a projectile each frame during barrage
+             spawnProjectile({
+                x: updatedEnemy.x + (directionToPlayer === 'right' ? updatedEnemy.width : -ENEMY.PROJECTILE_WIDTH),
+                y: updatedEnemy.y + (updatedEnemy.height * (0.2 + Math.random() * 0.6)),
+                width: ENEMY.PROJECTILE_WIDTH * 1.5,
+                height: ENEMY.PROJECTILE_HEIGHT * 1.5,
+                vx: (directionToPlayer === 'right' ? 1 : -1) * (ENEMY.PROJECTILE_SPEED + 2),
+            });
+        }
+    } else if (updatedEnemy.aiState === 'boss_teleport_slam' && updatedEnemy.aiTimer <= 0 && !updatedEnemy.isSlamming) {
+         const targetX = player.x + (player.direction === 'right' ? -150 : 150);
+         updatedEnemy.x = Math.max(0, Math.min(targetX, GAME_WIDTH - updatedEnemy.width));
+         updatedEnemy.isSlamming = true; // Visual cue for slam can be added here
+    } else if (updatedEnemy.aiState === 'boss_spawn_minions' && updatedEnemy.aiTimer <= 0) {
+        spawnEnemy({
+            x: updatedEnemy.x - 40, y: updatedEnemy.y + updatedEnemy.height - 35,
+            width: 35, height: 35, type: 'patrol',
+            direction: 'left', attackCooldown: 0, aiState: 'patrolling',
+            vx: -ENEMY_DEFINITIONS.patrol.patrolSpeed, initialX: updatedEnemy.x - 40, meleeAttackTimer: 0,
+            aiTimer: 0,
+        });
+        spawnEnemy({
+            x: updatedEnemy.x + updatedEnemy.width + 5, y: updatedEnemy.y + updatedEnemy.height - 35,
+            width: 35, height: 35, type: 'patrol',
+            direction: 'right', attackCooldown: 0, aiState: 'patrolling',
+            vx: ENEMY_DEFINITIONS.patrol.patrolSpeed, initialX: updatedEnemy.x  + updatedEnemy.width + 5, meleeAttackTimer: 0,
+            aiTimer: 0,
+        });
+        updatedEnemy.aiState = 'patrolling'; // Reset state after spawning
+    }
+    
+    return updatedEnemy;
+};
+
+
+const ENEMY_AI_UPDATES: Record<EnemyType, AiUpdateFunction | undefined> = {
     patrol: updatePatrol,
     shooter: updateShooter,
     charger: updateCharger,
     ninja: updateNinja,
+    patrol_fire: updatePatrol,
+    shooter_ice: updateShooter,
+    boss_1: updateBoss,
 };
 
 
@@ -336,8 +419,12 @@ const CooldownIndicator: React.FC<{ cooldown: number; maxCooldown: number, label
 // --- MAIN GAME COMPONENT ---
 
 const Game: React.FC<GameProps> = ({ level, onGameOver, onLevelComplete, onGoToMainMenu, onRestartCurrentLevel }) => {
-  const currentLevelData = ALL_LEVELS[level - 1] || ALL_LEVELS[0];
+  const currentLevelData = useMemo(() => ALL_LEVELS[level - 1] || ALL_LEVELS[0], [level]);
   const [isPaused, setIsPaused] = useState(false);
+  // Fix: Cannot find name 'setFrame'.
+  const [, setFrame] = useState(0);
+  const { device } = useResponsive();
+  const isDesktop = device === 'desktop';
   
   const gameContainerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState<number | null>(null);
@@ -361,48 +448,72 @@ const Game: React.FC<GameProps> = ({ level, onGameOver, onLevelComplete, onGoToM
     dashTimer: 0,
     doubleJumpUsed: false,
     teleportCooldown: 0,
+    teleportTimer: 0,
     isShielding: false,
     shieldCooldown: 0,
     shieldTimer: 0,
+    shurikenOut: false,
   });
 
   const [enemies, setEnemies] = useState<EnemyState[]>([]);
   const [projectiles, setProjectiles] = useState<ProjectileState[]>([]);
   const [swingingBlades, setSwingingBlades] = useState<SwingingBladeState[]>([]);
   const [healthPacks, setHealthPacks] = useState<LevelObject[]>([]);
-  const screenShakeRef = useRef(0);
-  const isScreenShakeEnabled = useRef(false);
+  const [shuriken, setShuriken] = useState<ShurikenProjectileState | null>(null);
   
   const keyboardPressedKeys = useKeyboardInput();
   const [touchPressedKeys, setTouchPressedKeys] = useState<Set<string>>(new Set());
-  const pressedKeys = useMemo(() => new Set([...keyboardPressedKeys, ...touchPressedKeys]), [keyboardPressedKeys, touchPressedKeys]);
+  const pressedKeys = useMemo(() => new Set([...keyboardPressedKeys, ...touchPressedKeys].map(key => key.toLowerCase())), [keyboardPressedKeys, touchPressedKeys]);
   const prevPressedKeys = useRef<Set<string>>(new Set());
+  const hitEnemiesDuringSwing = useRef(new Set<string>());
   
   const cameraRef = useRef({ x: 0, y: 0 });
   const levelWidth = useRef(GAME_WIDTH);
+  const isBossLevel = level > 0 && level % BOSS_LEVEL_INTERVAL === 0;
+  const [isBossDefeated, setIsBossDefeated] = useState(false);
+  const [levelObjects, setLevelObjects] = useState<LevelObject[]>([]);
+  const enemySpawnQueue = useRef<Omit<EnemyState, 'id' | 'health' | 'maxHealth'>[]>([]);
 
+  useEffect(() => {
+    setLevelObjects(currentLevelData);
+  }, [currentLevelData]);
 
-  const [levelObjects] = useState<LevelObject[]>(currentLevelData);
-  const [frame, setFrame] = useState(0); // Used to force re-render
-
+  // Screen orientation lock
+  // Fix: Property 'lock' does not exist on type 'ScreenOrientation'.
+  useEffect(() => {
+    const lockOrientation = async () => {
+      try {
+        if (screen.orientation && (screen.orientation as any).lock) {
+          await (screen.orientation as any).lock('landscape');
+        }
+      } catch (error) {
+        console.error('Failed to lock screen orientation:', error);
+      }
+    };
+    lockOrientation();
+    return () => {
+      if (screen.orientation && (screen.orientation as any).unlock) {
+        (screen.orientation as any).unlock();
+      }
+    };
+  }, []);
+  
+  // Responsive scaling
   useEffect(() => {
     const container = gameContainerRef.current;
     if (!container) return;
-
     const observer = new ResizeObserver(() => {
         if (container && container.offsetWidth > 0) {
-            const containerWidth = container.offsetWidth;
-            const newScale = containerWidth / GAME_WIDTH;
+            const newScale = container.offsetWidth / GAME_WIDTH;
             setScale(newScale);
         }
     });
     observer.observe(container);
     return () => observer.disconnect();
   }, []);
-
+  
+  // Pause listener
   useEffect(() => {
-    isScreenShakeEnabled.current = localStorage.getItem('screenShakeEnabled') === 'true';
-
     const handleKeyDown = (e: KeyboardEvent) => {
         if (e.key.toLowerCase() === 'p' || e.key === 'Escape') {
             setIsPaused(prev => !prev);
@@ -412,9 +523,10 @@ const Game: React.FC<GameProps> = ({ level, onGameOver, onLevelComplete, onGoToM
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  // Level setup
   useEffect(() => {
     const goal = currentLevelData.find(obj => obj.type === 'goal');
-    levelWidth.current = goal ? goal.x + 200 : GAME_WIDTH;
+    levelWidth.current = isBossLevel ? GAME_WIDTH : (goal ? goal.x + 200 : GAME_WIDTH * 2);
 
     setHealthPacks(currentLevelData.filter(obj => obj.type === 'healthPack'));
 
@@ -422,28 +534,23 @@ const Game: React.FC<GameProps> = ({ level, onGameOver, onLevelComplete, onGoToM
       .filter(obj => obj.type === 'enemy' && obj.enemyType)
       .map(obj => {
         const def = ENEMY_DEFINITIONS[obj.enemyType!];
+        const bossStats = obj.enemyType === 'boss_1' ? getBossStats(level) : null;
         const platformBeneath = currentLevelData
           .filter(p => p.type === 'platform')
-          .find(p => 
-            Math.abs((obj.y + obj.height) - p.y) < 5 &&
-            obj.x < p.x + p.width &&
-            obj.x + obj.width > p.x
-          );
+          .find(p => Math.abs((obj.y + obj.height) - p.y) < 5 && obj.x < p.x + p.width && obj.x + obj.width > p.x );
+
+        const health = bossStats ? bossStats.health : def.health;
 
         return {
-          id: obj.id,
-          x: obj.x,
-          y: obj.y,
-          width: def.width,
-          height: def.height,
-          type: obj.enemyType!,
-          direction: 'left',
-          attackCooldown: 0,
+          id: obj.id, x: obj.x, y: obj.y, width: def.width, height: def.height, type: obj.enemyType!,
+          direction: 'left', 
+          attackCooldown: bossStats ? bossStats.attackCooldown : 0,
           aiState: 'patrolling',
           patrolBounds: platformBeneath ? { left: platformBeneath.x, right: platformBeneath.x + platformBeneath.width - obj.width } : undefined,
-          vx: (obj.enemyType === 'patrol' || obj.enemyType === 'ninja') ? -(def.patrolSpeed || 0) : 0,
-          initialX: obj.x,
-          meleeAttackTimer: 0,
+          vx: (obj.enemyType?.startsWith('patrol') || obj.enemyType === 'ninja') ? -(def.patrolSpeed || 0) : 0,
+          initialX: obj.x, meleeAttackTimer: 0,
+          health: health, maxHealth: health,
+          aiTimer: 0,
         };
       });
     setEnemies(initialEnemies);
@@ -454,8 +561,11 @@ const Game: React.FC<GameProps> = ({ level, onGameOver, onLevelComplete, onGoToM
     setSwingingBlades(initialBlades);
 
     setProjectiles([]);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [level]);
+    setShuriken(null);
+    playerRef.current.shurikenOut = false;
+    setIsBossDefeated(false);
+
+  }, [level, currentLevelData, isBossLevel]);
 
   const handleTouchKeyPress = (key: string) => {
     setTouchPressedKeys(prev => new Set(prev).add(key));
@@ -473,19 +583,7 @@ const Game: React.FC<GameProps> = ({ level, onGameOver, onLevelComplete, onGoToM
 
     const player = playerRef.current;
     
-    const justPressed = (key: string) => pressedKeys.has(key) && !prevPressedKeys.current.has(key);
-
-    // --- SCREEN SHAKE ---
-    if (screenShakeRef.current > 0) {
-        screenShakeRef.current -= 1.5; // Decay factor
-        if (screenShakeRef.current < 0) screenShakeRef.current = 0;
-    }
-
-    const triggerShake = (intensity: number) => {
-        if (isScreenShakeEnabled.current) {
-            screenShakeRef.current = intensity;
-        }
-    }
+    const justPressed = (key: string) => pressedKeys.has(key.toLowerCase()) && !prevPressedKeys.current.has(key.toLowerCase());
 
     // --- PLAYER TIMERS ---
     if (player.attackCooldown > 0) player.attackCooldown -= deltaTime;
@@ -493,30 +591,54 @@ const Game: React.FC<GameProps> = ({ level, onGameOver, onLevelComplete, onGoToM
     if (player.dashCooldown > 0) player.dashCooldown -= deltaTime;
     if (player.teleportCooldown > 0) player.teleportCooldown -= deltaTime;
     if (player.shieldCooldown > 0) player.shieldCooldown -= deltaTime;
-
+    if (player.teleportTimer > 0) player.teleportTimer -= deltaTime;
     if (player.dashTimer > 0) {
         player.dashTimer -= deltaTime;
-        if (player.dashTimer <= 0) {
-            player.isDashing = false;
-        }
+        if (player.dashTimer <= 0) player.isDashing = false;
     }
-
     if (player.shieldTimer > 0) {
       player.shieldTimer -= deltaTime;
-      if (player.shieldTimer <= 0) {
-        player.isShielding = false;
-      }
+      if (player.shieldTimer <= 0) player.isShielding = false;
     }
 
 
     // --- PLAYER INPUT & MOVEMENT ---
+     if (justPressed('w') && player.teleportCooldown <= 0) {
+        if (!shuriken) {
+            // Throw shuriken
+            player.shurikenOut = true;
+            setShuriken({
+                id: 'player_shuriken',
+                x: player.x + player.width / 2,
+                y: player.y + player.height / 2,
+                width: ENEMY.SHURIKEN_WIDTH,
+                height: ENEMY.SHURIKEN_HEIGHT,
+                vx: (player.direction === 'right' ? 1 : -1) * PLAYER.SHURIKEN_SPEED,
+                vy: -2, // Slight upward arc
+                rotation: 0
+            });
+            setTimeout(() => {
+                player.shurikenOut = false;
+                setShuriken(null);
+            }, PLAYER.SHURIKEN_LIFESPAN);
+        } else {
+            // Teleport to shuriken
+            player.x = shuriken.x - player.width / 2;
+            player.y = shuriken.y - player.height / 2;
+            player.vy = 0; // Reset velocity after teleport
+            player.teleportCooldown = PLAYER.TELEPORT_COOLDOWN;
+            player.teleportTimer = PLAYER.TELEPORT_EFFECT_DURATION;
+            player.shurikenOut = false;
+            setShuriken(null);
+        }
+    }
+
     if (justPressed('d') && player.dashCooldown <= 0 && !player.isDashing) {
         player.isDashing = true;
         player.dashTimer = PLAYER.DASH_DURATION;
         player.dashCooldown = PLAYER.DASH_COOLDOWN;
         player.invincibilityTimer = Math.max(player.invincibilityTimer, PLAYER.DASH_DURATION);
         player.vy = 0;
-        triggerShake(5); // Small shake on dash
     }
 
     if (justPressed('s') && player.shieldCooldown <= 0) {
@@ -525,46 +647,48 @@ const Game: React.FC<GameProps> = ({ level, onGameOver, onLevelComplete, onGoToM
       player.shieldCooldown = PLAYER.SHIELD_COOLDOWN;
     }
 
-    if (justPressed('a') && player.attackCooldown <= 0) {
-        player.isAttacking = true;
-        player.attackCooldown = PLAYER.ATTACK_COOLDOWN;
-        setTimeout(() => { player.isAttacking = false; }, PLAYER.ATTACK_DURATION);
+    if (justPressed('a')) {
+        hitEnemiesDuringSwing.current.clear();
+        if(player.attackCooldown <= 0) {
+            player.isAttacking = true;
+            player.attackCooldown = PLAYER.ATTACK_COOLDOWN;
+            setTimeout(() => { player.isAttacking = false; }, PLAYER.ATTACK_DURATION);
+        }
     }
     
     if (player.isDashing) {
         player.vx = (player.direction === 'right' ? 1 : -1) * PLAYER.DASH_SPEED;
     } else {
         player.vx = 0;
-        if (pressedKeys.has('ArrowLeft')) {
+        if (pressedKeys.has('arrowleft')) {
           player.vx = -PLAYER.SPEED;
           player.direction = 'left';
         }
-        if (pressedKeys.has('ArrowRight')) {
+        if (pressedKeys.has('arrowright')) {
           player.vx = PLAYER.SPEED;
           player.direction = 'right';
         }
         
-        if (justPressed('ArrowUp')) {
+        if (justPressed('arrowup')) {
           if (player.isOnGround) {
             player.vy = -PLAYER.JUMP_FORCE;
             player.isOnGround = false;
             player.doubleJumpUsed = false;
+          } else if (!player.doubleJumpUsed) {
+             player.vy = -PLAYER.JUMP_FORCE * 0.9;
+             player.doubleJumpUsed = true;
           }
         }
-        
-        if (justPressed(' ')) { // Space for double jump
-             if (!player.isOnGround && !player.doubleJumpUsed) {
-                player.vy = -PLAYER.JUMP_FORCE * 0.9; // slightly less force for double jump
-                player.doubleJumpUsed = true;
-            }
-        }
-
+    }
+    
+    // Gravity (unless dashing)
+    if (!player.isDashing) {
         player.vy += PHYSICS.GRAVITY;
         if (player.vy > PHYSICS.MAX_FALL_SPEED) player.vy = PHYSICS.MAX_FALL_SPEED;
     }
 
-    const nextX = player.x + player.vx;
     const nextY = player.y + player.vy;
+    let nextX = player.x + player.vx;
     player.isOnGround = false;
 
     // --- PLAYER COLLISION DETECTION & RESOLUTION ---
@@ -573,14 +697,15 @@ const Game: React.FC<GameProps> = ({ level, onGameOver, onLevelComplete, onGoToM
     let verticalCollision = false;
     for (const platform of platforms) {
       if (isColliding(verticalPlayerBounds, platform)) {
-        if (player.vy > 0) {
+        if (player.vy >= 0) {
           player.y = platform.y - player.height;
           player.isOnGround = true;
           player.doubleJumpUsed = false;
+          player.vy = 0;
         } else {
           player.y = platform.y + platform.height;
+          player.vy = 0;
         }
-        player.vy = 0;
         verticalCollision = true;
         break;
       }
@@ -591,14 +716,14 @@ const Game: React.FC<GameProps> = ({ level, onGameOver, onLevelComplete, onGoToM
     let horizontalCollision = false;
     for (const platform of platforms) {
         if (isColliding(horizontalPlayerBounds, platform)) {
-            if (player.vx > 0) { player.x = platform.x - player.width; } 
-            else { player.x = platform.x + platform.width; }
+            if (player.vx > 0) { nextX = platform.x - player.width; } 
+            else if (player.vx < 0) { nextX = platform.x + platform.width; }
             player.vx = 0;
             horizontalCollision = true;
             break;
         }
     }
-    if (!horizontalCollision) player.x = nextX;
+    player.x = nextX;
 
 
     if (player.x < 0) player.x = 0;
@@ -609,10 +734,7 @@ const Game: React.FC<GameProps> = ({ level, onGameOver, onLevelComplete, onGoToM
         if (player.invincibilityTimer <= 0) {
             player.health -= 1;
             player.invincibilityTimer = PLAYER.INVINCIBILITY_DURATION;
-            triggerShake(15);
-            if (player.health <= 0) {
-                onGameOver();
-            }
+            if (player.health <= 0) onGameOver();
         }
     }
 
@@ -647,27 +769,94 @@ const Game: React.FC<GameProps> = ({ level, onGameOver, onLevelComplete, onGoToM
     const spawnProjectile = (pData: Omit<ProjectileState, 'id'>) => {
         newProjectiles.push({ id: `proj_${Date.now()}_${Math.random()}`, ...pData });
     };
+    
+    const spawnEnemy: EnemySpawnFunction = (enemyData) => {
+        enemySpawnQueue.current.push(enemyData);
+    };
 
     const updatedEnemies = enemies.map(enemy => {
         const updateFunction = ENEMY_AI_UPDATES[enemy.type];
-        return updateFunction ? updateFunction(enemy, player, deltaTime, spawnProjectile) : enemy;
+        return updateFunction ? updateFunction(enemy, player, deltaTime, spawnProjectile, spawnEnemy) : enemy;
     });
+    
+    if (enemySpawnQueue.current.length > 0) {
+        const newEnemies = enemySpawnQueue.current.map(data => {
+            const def = ENEMY_DEFINITIONS[data.type];
+            return {
+                ...data,
+                id: `e_${Date.now()}_${Math.random()}`,
+                health: def.health,
+                maxHealth: def.health,
+            };
+        });
+        updatedEnemies.push(...newEnemies);
+        enemySpawnQueue.current = [];
+    }
 
     let remainingEnemies = [...updatedEnemies];
+    if (player.isAttacking) {
+        remainingEnemies = remainingEnemies.map(enemy => {
+             if (isColliding(attackBox, enemy) && !hitEnemiesDuringSwing.current.has(enemy.id)) {
+                hitEnemiesDuringSwing.current.add(enemy.id);
+                return { ...enemy, health: enemy.health - PLAYER.ATTACK_DAMAGE };
+            }
+            return enemy;
+        });
+    }
+
     remainingEnemies.forEach(enemy => {
-        if(player.isAttacking && isColliding(attackBox, enemy)) {
-            remainingEnemies = remainingEnemies.filter(e => e.id !== enemy.id);
-            triggerShake(8);
-        } else if (isColliding(player, enemy)) {
+        if (isColliding(player, enemy)) {
             handleDamage();
         }
     });
     
+    // --- Update player shuriken & shuriken damage
+    if (shuriken) {
+        const nextShuriken = { ...shuriken };
+        nextShuriken.x += nextShuriken.vx;
+        nextShuriken.vy += PHYSICS.GRAVITY * 0.5; // Less gravity
+        nextShuriken.y += nextShuriken.vy;
+        nextShuriken.rotation += 30;
+        
+        let shurikenVanished = false;
+        for (const platform of platforms) {
+            if (isColliding(nextShuriken, platform)) {
+                shurikenVanished = true;
+                break;
+            }
+        }
+        
+        if(!shurikenVanished) {
+            for (const enemy of remainingEnemies) {
+                if (isColliding(nextShuriken, enemy)) {
+                    enemy.health -= PLAYER.SHURIKEN_DAMAGE;
+                    shurikenVanished = true;
+                    break;
+                }
+            }
+        }
+        
+        if (shurikenVanished) {
+            player.shurikenOut = false;
+            setShuriken(null);
+        } else {
+            setShuriken(nextShuriken);
+        }
+    }
+
+    remainingEnemies = remainingEnemies.filter(e => e.health > 0);
+    
+    // Check for boss defeat
+    if (isBossLevel && !isBossDefeated && enemies.some(e => e.type === 'boss_1') && remainingEnemies.every(e => e.type !== 'boss_1')) {
+        setIsBossDefeated(true);
+        // Spawn goal
+        setLevelObjects(prev => [...prev, { id: 'goal', type: 'goal', x: GAME_WIDTH / 2 - 30, y: GAME_HEIGHT - 120, width: 60, height: 60 }]);
+    }
     setEnemies(remainingEnemies);
 
     let stillActiveProjectiles = [...projectiles, ...newProjectiles]
         .map(p => ({...p, x: p.x + p.vx}))
-        .filter(p => p.x > 0 && p.x < levelWidth.current);
+        .filter(p => p.x > -50 && p.x < levelWidth.current + 50);
         
     stillActiveProjectiles = stillActiveProjectiles.filter(p => {
         if(isColliding(player, p)) {
@@ -677,6 +866,7 @@ const Game: React.FC<GameProps> = ({ level, onGameOver, onLevelComplete, onGoToM
         return true;
     });
     setProjectiles(stillActiveProjectiles);
+    
     
     const time = Date.now();
     const updatedBlades = swingingBlades.map(blade => {
@@ -698,14 +888,11 @@ const Game: React.FC<GameProps> = ({ level, onGameOver, onLevelComplete, onGoToM
     // --- CAMERA UPDATE ---
     const camera = cameraRef.current;
     const targetCamX = player.x - GAME_WIDTH / 2;
-    
     camera.x += (targetCamX - camera.x) * 0.1;
-    camera.y = 0; // Remove vertical camera movement for better UX
-
-    // Clamp camera
+    camera.y = 0;
     camera.x = Math.max(0, Math.min(camera.x, levelWidth.current - GAME_WIDTH));
 
-    prevPressedKeys.current = pressedKeys;
+    prevPressedKeys.current = new Set([...pressedKeys].map(k => k.toLowerCase()));
     setFrame(f => f + 1);
   });
 
@@ -719,19 +906,21 @@ const Game: React.FC<GameProps> = ({ level, onGameOver, onLevelComplete, onGoToM
   };
 
   const camera = cameraRef.current;
-  const shake = screenShakeRef.current;
-  const shakeX = shake > 0 ? (Math.random() - 0.5) * shake : 0;
-  const shakeY = shake > 0 ? (Math.random() - 0.5) * shake : 0;
+  const biome = getBiomeForLevel(level);
 
   return (
     <div
       ref={gameContainerRef}
-      className="relative bg-gray-900 overflow-hidden border-4 border-gray-700 w-full max-h-full"
-      style={{ maxWidth: GAME_WIDTH, aspectRatio: `${GAME_WIDTH} / ${GAME_HEIGHT}` }}
+      className={`relative overflow-hidden border-4 border-gray-700 w-full h-full ${biome}`}
+      style={{
+          // Use max-height with aspect ratio for better responsive behavior
+          maxHeight: '100vh',
+          aspectRatio: `${GAME_WIDTH} / ${GAME_HEIGHT}`
+      }}
     >
       {/* Non-scaled UI overlays */}
       {isPaused && <PauseMenu onResume={() => setIsPaused(false)} onRestart={onRestartCurrentLevel} onGoToMainMenu={onGoToMainMenu} />}
-      <MobileControls onKeyPress={handleTouchKeyPress} onKeyRelease={handleTouchKeyRelease} />
+      {!isDesktop && <MobileControls onKeyPress={handleTouchKeyPress} onKeyRelease={handleTouchKeyRelease} />}
       
       {/* Scaled game container */}
       <div
@@ -749,6 +938,7 @@ const Game: React.FC<GameProps> = ({ level, onGameOver, onLevelComplete, onGoToM
           <div className="w-px h-8 bg-white/20 mx-1"></div>
           <CooldownIndicator cooldown={playerRef.current.dashCooldown} maxCooldown={PLAYER.DASH_COOLDOWN} label="D" />
           <CooldownIndicator cooldown={playerRef.current.shieldCooldown} maxCooldown={PLAYER.SHIELD_COOLDOWN} label="S" />
+          <CooldownIndicator cooldown={playerRef.current.teleportCooldown} maxCooldown={PLAYER.TELEPORT_COOLDOWN} label="W" />
         </div>
 
         <div className="absolute top-2 left-1/2 -translate-x-1/2 p-2 px-4 bg-black/40 ios-backdrop-blur rounded-xl border border-white/10 z-10 text-lg font-semibold text-white">
@@ -767,11 +957,12 @@ const Game: React.FC<GameProps> = ({ level, onGameOver, onLevelComplete, onGoToM
         <div
           className="absolute top-0 left-0"
           style={{
-            transform: `translate(${-camera.x + shakeX}px, ${-camera.y + shakeY}px)`,
+            transform: `translate(${-camera.x}px, ${-camera.y}px)`,
             willChange: 'transform'
           }}
         >
           <Player player={playerRef.current} />
+          {shuriken && <Shuriken shuriken={shuriken} />}
           {levelObjects.map(renderMapObject)}
           {enemies.map(enemy => <Enemy key={enemy.id} enemy={enemy} />)}
           {projectiles.map(p => <Projectile key={p.id} projectile={p} />)}

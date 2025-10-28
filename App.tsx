@@ -10,6 +10,7 @@ import AboutScreen from './components/ui/AboutScreen';
 import LevelsScreen from './components/ui/LevelsScreen';
 import SettingsScreen from './components/ui/SettingsScreen';
 import LevelCompleteScreen from './components/ui/LevelCompleteScreen';
+import LeaderboardScreen from './components/ui/LeaderboardScreen';
 import { ALL_LEVELS } from './constants';
 
 const App: React.FC = () => {
@@ -40,13 +41,16 @@ const App: React.FC = () => {
 
   // --- INITIAL LOAD ---
   useEffect(() => {
-    const savedUsername = localStorage.getItem('crimsonShinobi_username');
-    if (savedUsername) {
-      setUsername(savedUsername);
-      setGameStatus('loadingData');
-    } else {
-      setGameStatus('login');
-    }
+    // Show loading screen briefly for better perceived performance
+    setTimeout(() => {
+      const savedUsername = localStorage.getItem('crimsonShinobi_username');
+      if (savedUsername) {
+        setUsername(savedUsername);
+        setGameStatus('loadingData');
+      } else {
+        setGameStatus('login');
+      }
+    }, 1000); // 1 second loading screen
   }, []);
 
   // --- DATA LOADING ---
@@ -73,11 +77,17 @@ const App: React.FC = () => {
     };
     loadData();
   }, [gameStatus, username]);
+  
+  const updateUsername = (newName: string) => {
+      setUsername(newName);
+      localStorage.setItem('crimsonShinobi_username', newName);
+      // Here you might want to handle data migration if names are primary keys,
+      // but for this app, we'll assume we continue with the same progress.
+  };
 
   // --- GAME STATE HANDLERS ---
   const handleLogin = (name: string) => {
-    setUsername(name);
-    localStorage.setItem('crimsonShinobi_username', name);
+    updateUsername(name);
     setGameStatus('loadingData');
   };
 
@@ -94,6 +104,7 @@ const App: React.FC = () => {
   const showAbout = useCallback(() => setGameStatus('about'), []);
   const showLevels = useCallback(() => setGameStatus('levels'), []);
   const showSettings = useCallback(() => setGameStatus('settings'), []);
+  const showLeaderboard = useCallback(() => setGameStatus('leaderboard'), []);
   const restartCurrentLevel = useCallback(() => {
     setGameStatus('playing');
     setGameKey(prev => prev + 1);
@@ -116,23 +127,24 @@ const App: React.FC = () => {
     }
   }, [currentLevel]);
 
-  const handleContinueToNextLevel = useCallback(() => {
+  const handleContinueToNextLevel = useCallback(async () => {
     const nextLevel = currentLevel + 1;
+     if (username) {
+      await savePlayerData(username, deathCount, nextLevel);
+    }
     startGame(nextLevel);
-  }, [currentLevel, startGame]);
+  }, [currentLevel, startGame, username, deathCount]);
 
   const handleResetGame = useCallback(async () => {
-    if (window.confirm('Are you sure you want to reset all progress? Your level and death count will be permanently reset to the beginning.')) {
-      const newLevel = 1;
-      const newDeaths = 0;
-      setCurrentLevel(newLevel);
-      setDeathCount(newDeaths);
-      setGameStatus('start');
-      if (username) {
-        await savePlayerData(username, newDeaths, newLevel);
-      }
-      clearOffline();
+    const newLevel = 1;
+    const newDeaths = 0;
+    setCurrentLevel(newLevel);
+    setDeathCount(newDeaths);
+    setGameStatus('start');
+    if (username) {
+      await savePlayerData(username, newDeaths, newLevel);
     }
+    clearOffline();
   }, [username]);
 
   const renderContent = () => {
@@ -148,6 +160,7 @@ const App: React.FC = () => {
                   onShowAbout={showAbout} 
                   onShowLevels={showLevels}
                   onShowSettings={showSettings}
+                  onShowLeaderboard={showLeaderboard}
                   currentLevel={currentLevel}
                   deathCount={deathCount}
                   username={username || ''}
@@ -157,7 +170,14 @@ const App: React.FC = () => {
       case 'levels':
         return <LevelsScreen onBack={goToMainMenu} onSelectLevel={startGame} />;
       case 'settings':
-        return <SettingsScreen onBack={goToMainMenu} onResetGame={handleResetGame} />;
+        return <SettingsScreen 
+                  onBack={goToMainMenu} 
+                  onResetGame={handleResetGame} 
+                  username={username || ''}
+                  onUpdateUsername={updateUsername}
+                />;
+      case 'leaderboard':
+        return <LeaderboardScreen onBack={goToMainMenu} />;
       case 'playing':
         return <Game 
                   key={gameKey} 
@@ -179,7 +199,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <main className="flex items-center justify-center h-screen bg-black text-white">
+    <main className="flex items-center justify-center h-screen bg-black text-white w-full h-full">
       {renderContent()}
     </main>
   );

@@ -12,7 +12,7 @@ const Player: React.FC<PlayerProps> = ({ player }) => {
   if (!player.isOnGround) {
     animationClass = 'player-jump';
     // Add specific class for ascending or descending
-    if (player.vy < -1) { // A small threshold to prevent flickering at the apex
+    if (player.vy < -0.5) { // A small threshold to prevent flickering at the apex
       animationClass += ' player-jump-up';
     } else {
       animationClass += ' player-jump-down';
@@ -48,35 +48,42 @@ const Player: React.FC<PlayerProps> = ({ player }) => {
       {player.isDashing && (
         <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-r from-red-500/0 via-red-500/60 to-red-500/0 opacity-80 scale-x-150" />
       )}
+      
+      {/* Teleport Effect */}
+       {player.teleportTimer > 0 && (
+        <div className="absolute top-0 left-0 w-full h-full bg-red-500/80 rounded-full player-teleporting" />
+      )}
+
 
       {/* Player Body - redesigned to look more like a classic ninja */}
       <div className="relative w-full h-full z-10">
           <div className="w-full h-full ninja-body">
               {/* Head */}
-              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[70%] h-[55%] bg-[#282828] rounded-sm">
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[70%] h-[55%] bg-[#1a1a1a] rounded-t-sm">
                   {/* Eyeslit */}
-                  <div className="absolute top-[35%] left-0 w-full h-[30%] bg-[#1a1a1a] flex items-center justify-center gap-1">
+                  <div className="absolute top-[35%] left-0 w-full h-[30%] bg-[#0f0f0f] flex items-center justify-center gap-1">
                       {/* Eyes */}
-                      <div className="w-2 h-2 bg-white"></div>
-                      <div className="w-2 h-2 bg-white"></div>
+                      <div className="w-1.5 h-1.5 bg-red-500"></div>
+                      <div className="w-1.5 h-1.5 bg-red-500"></div>
                   </div>
-                  {/* Headband */}
-                  <div className="absolute top-[10%] left-0 w-full h-[20%] bg-red-700"></div>
               </div>
               
               {/* Torso */}
-              <div className="absolute top-[55%] left-1/2 -translate-x-1/2 w-[55%] h-[20%] bg-[#383838]"></div>
+              <div className="absolute top-[55%] left-1/2 -translate-x-1/2 w-[55%] h-[20%] bg-[#282828]"></div>
 
               {/* Legs */}
               <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[50%] h-[25%] flex justify-between">
-                  <div className="w-[45%] h-full bg-[#2a2a2a] rounded-b-sm leg leg-left"></div>
-                  <div className="w-[45%] h-full bg-[#2a2a2a] rounded-b-sm leg leg-right"></div>
+                  <div className="w-[45%] h-full bg-[#1a1a1a] rounded-b-sm leg leg-left"></div>
+                  <div className="w-[45%] h-full bg-[#1a1a1a] rounded-b-sm leg leg-right"></div>
               </div>
+
+               {/* Sash */}
+                <div className="absolute top-[50%] left-1/2 -translate-x-1/2 w-[80%] h-[15%] bg-red-700 ninja-sash-glow"></div>
           </div>
 
           {/* Scarf / Headband Tie */}
           <div
-            className="absolute top-[20%] left-[65%] w-1/3 h-[8%] bg-red-700 origin-left scarf z-0 rounded-sm"
+            className="absolute top-[15%] left-[65%] w-1/3 h-[8%] bg-red-700 origin-left scarf z-0 rounded-sm"
           />
       </div>
       

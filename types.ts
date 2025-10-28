@@ -1,4 +1,4 @@
-export type GameStatus = 'loading' | 'login' | 'loadingData' | 'start' | 'playing' | 'gameOver' | 'win' | 'about' | 'levels' | 'settings' | 'gameEnd' | 'levelComplete';
+export type GameStatus = 'loading' | 'login' | 'loadingData' | 'start' | 'playing' | 'gameOver' | 'win' | 'about' | 'levels' | 'settings' | 'gameEnd' | 'levelComplete' | 'leaderboard';
 
 export interface GameObject {
   id: string;
@@ -10,8 +10,8 @@ export interface GameObject {
 
 export type LevelObjectType = 'platform' | 'enemy' | 'spike' | 'goal' | 'swingingBlade' | 'healthPack';
 
-export type EnemyType = 'patrol' | 'shooter' | 'charger' | 'ninja';
-export type AiState = 'patrolling' | 'aggro';
+export type EnemyType = 'patrol' | 'shooter' | 'charger' | 'ninja' | 'boss_1' | 'patrol_fire' | 'shooter_ice';
+export type AiState = 'patrolling' | 'aggro' | 'special_attack' | 'boss_barrage' | 'boss_teleport_slam' | 'boss_spawn_minions';
 export type Direction = 'left' | 'right';
 
 export interface LevelObject extends GameObject {
@@ -40,9 +40,11 @@ export interface PlayerState extends GameObject {
   dashTimer: number;
   doubleJumpUsed: boolean;
   teleportCooldown: number;
+  teleportTimer: number;
   isShielding: boolean;
   shieldCooldown: number;
   shieldTimer: number;
+  shurikenOut: boolean;
 }
 
 export interface EnemyState extends GameObject {
@@ -54,14 +56,22 @@ export interface EnemyState extends GameObject {
     vx: number;
     initialX: number;
     meleeAttackTimer: number; // Ninja specific
+    health: number;
+    maxHealth: number;
+    aiTimer: number; // General purpose timer for AI state changes
+    isSlamming?: boolean;
 }
 
 export interface ProjectileState extends GameObject {
     vx: number;
+    vy?: number;
+    type?: 'enemy' | 'player_shuriken';
 }
 
 export interface ShurikenProjectileState extends GameObject {
     vx: number;
+    vy: number;
+    rotation: number;
 }
 
 export interface SwingingBladeState extends LevelObject {

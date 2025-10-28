@@ -6,6 +6,12 @@ export interface PlayerData {
   current_level: number;
 }
 
+export interface LeaderboardEntry {
+  username: string;
+  dead_count: number;
+}
+
+
 // Save player data to Supabase, or store locally if offline
 export const savePlayerData = async (username: string, deadCount: number, currentLevel: number): Promise<void> => {
   const playerData: PlayerData = {
@@ -20,18 +26,14 @@ export const savePlayerData = async (username: string, deadCount: number, curren
       .upsert({ ...playerData, updated_at: new Date().toISOString() }, { onConflict: 'username' });
 
     if (error) {
-      // 'NO_CREDS' is our custom code for when Supabase is not configured.
-      // Don't log this as an error, as offline fallback is expected behavior.
       if (error.code !== 'NO_CREDS') {
         console.error('Error saving player data:', error.message);
       }
-      // If Supabase fails, save offline as a fallback
       saveOffline(playerData);
     } else {
       console.log('Player data saved successfully.');
     }
   } else {
-    // Save data to localStorage if offline
     saveOffline(playerData);
   }
 };
@@ -50,9 +52,6 @@ export const loadPlayerData = async (username: string): Promise<PlayerData | nul
     .single();
 
   if (error) {
-    // 'PGRST116' means no user was found, which is not an error in this context.
-    // 'NO_CREDS' is our custom code for when Supabase is not configured.
-    // In both cases, we can proceed without logging a scary error message.
     if (error.code !== 'PGRST116' && error.code !== 'NO_CREDS') {
         console.error('Error loading player data:', error.message);
     }
@@ -61,6 +60,30 @@ export const loadPlayerData = async (username: string): Promise<PlayerData | nul
 
   return data;
 };
+
+// Get leaderboard data
+export const getLeaderboardData = async (): Promise<LeaderboardEntry[] | null> => {
+    if (!navigator.onLine) {
+        console.warn("Offline mode: Cannot load leaderboard.");
+        return null;
+    }
+
+    const { data, error } = await supabase
+        .from('players')
+        .select('username, dead_count')
+        .order('dead_count', { ascending: false }) // Higher death count is worse, so maybe order ascending? User asked for dashboard, this is a good start. Let's make it ascending.
+        .order('dead_count', { ascending: true })
+        .limit(20);
+
+    if (error) {
+        if (error.code !== 'NO_CREDS') {
+            console.error('Error loading leaderboard data:', error.message);
+        }
+        return null;
+    }
+    return data;
+};
+
 
 // --- OFFLINE HELPERS ---
 

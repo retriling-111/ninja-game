@@ -23,16 +23,31 @@ if (!supabaseUrl || !supabaseAnonKey || supabaseUrl.includes('ywdkywywqfuyubhhww
   );
   
   // Create a dummy client that will fail gracefully, allowing offline mode to function.
+  const mockError = { message: 'Supabase not configured', code: 'NO_CREDS', details: '', hint: '' };
+  
+  // A mock query builder that allows chaining and returns a mock error.
+  const dummyQueryBuilder = {
+    // Chainable methods
+    eq: function() { return this; },
+    order: function() { return this; },
+    limit: function() { return this; },
+
+    // Finalizers that return a promise
+    single: () => Promise.resolve({ data: null, error: mockError }),
+    
+    // The query builder itself is "thenable" for `await`
+    then: function(resolve: (value: { data: null, error: typeof mockError }) => void) {
+      resolve({ data: null, error: mockError });
+    }
+  };
+
   const dummySupabase = {
     from: (_tableName: string) => ({
-      upsert: () => Promise.resolve({ error: { message: 'Supabase not configured', code: 'NO_CREDS', details: '', hint: '' } }),
-      select: (_columns: string) => ({
-        eq: (_column: string, _value: any) => ({
-          single: () => Promise.resolve({ error: { message: 'Supabase not configured', code: 'NO_CREDS', details: '', hint: '' } }),
-        }),
-      }),
+      upsert: () => Promise.resolve({ error: mockError }),
+      select: (_columns: string) => dummyQueryBuilder,
     }),
   };
+
   supabaseClient = dummySupabase as any; // Cast to any to satisfy the SupabaseClient type
 
 } else {

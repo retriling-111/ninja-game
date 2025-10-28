@@ -17,7 +17,8 @@ export const PLAYER = {
   ATTACK_COOLDOWN: 400, // ms
   ATTACK_WIDTH: 50,
   ATTACK_HEIGHT: 60,
-  INITIAL_HEALTH: 3,
+  ATTACK_DAMAGE: 1,
+  INITIAL_HEALTH: 5, // Increased from 3
   INVINCIBILITY_DURATION: 1500, // ms
   DASH_SPEED: 14,
   DASH_DURATION: 250, // ms
@@ -25,19 +26,27 @@ export const PLAYER = {
   SHIELD_DURATION: 3500, // ms
   SHIELD_COOLDOWN: 5000, // ms
   TELEPORT_COOLDOWN: 2000, // ms
+  TELEPORT_EFFECT_DURATION: 200, // ms
+  SHURIKEN_SPEED: 12,
+  SHURIKEN_LIFESPAN: 2000, // ms
+  SHURIKEN_DAMAGE: 1,
 };
+
+export const BOSS_LEVEL_INTERVAL = 20;
 
 export const ENEMY_DEFINITIONS: Record<EnemyType, any> = {
     patrol: {
         width: 35,
         height: 35,
         patrolSpeed: 2,
+        health: 2,
     },
     shooter: {
         width: 35,
         height: 35,
         cooldown: 2000,
         range: 400,
+        health: 1,
     },
     charger: {
         width: 35,
@@ -45,6 +54,7 @@ export const ENEMY_DEFINITIONS: Record<EnemyType, any> = {
         speed: 8,
         range: 300,
         cooldown: 1500,
+        health: 3,
     },
     ninja: {
         width: 38,
@@ -55,13 +65,53 @@ export const ENEMY_DEFINITIONS: Record<EnemyType, any> = {
         attackCooldown: 1800,
         meleeDashSpeed: 9,
         meleeDashDuration: 300,
+        health: 4,
     },
+    // Biome variations - you can change colors or stats
+    patrol_fire: {
+        width: 35,
+        height: 35,
+        patrolSpeed: 2.5, // Slightly faster
+        health: 3,
+    },
+    shooter_ice: {
+        width: 35,
+        height: 35,
+        cooldown: 2500, // Slower shooting
+        range: 450,
+        health: 2,
+    },
+    // BOSS
+    boss_1: {
+        width: 100,
+        height: 120,
+        health: 20, // Base health
+        aggroRange: 800,
+        attackCooldown: 2500, // Base cooldown
+    }
+};
+
+export const getBossStats = (levelNumber: number) => {
+    const bossTier = Math.floor((levelNumber - 1) / BOSS_LEVEL_INTERVAL); // 0 for level 20, 1 for level 40 etc.
+    return {
+        health: 20 + bossTier * 15,
+        attackCooldown: Math.max(1500, 2500 - bossTier * 300),
+    };
 };
 
 export const ENEMY = {
   PROJECTILE_SPEED: 7,
   PROJECTILE_WIDTH: 15,
   PROJECTILE_HEIGHT: 15,
+  SHURIKEN_WIDTH: 20,
+  SHURIKEN_HEIGHT: 20,
+};
+
+// --- WORLD/BIOME LOGIC ---
+export const BIOMES = ['default', 'fire', 'ice', 'forest', 'sky'];
+export const getBiomeForLevel = (levelNumber: number): string => {
+    const biomeIndex = Math.floor((levelNumber - 1) / BOSS_LEVEL_INTERVAL);
+    return BIOMES[biomeIndex % BIOMES.length];
 };
 
 
@@ -83,46 +133,52 @@ const generateLevel = (levelNumber: number): LevelObject[] => {
     const level: LevelObject[] = [];
     let idCounter = 0;
 
-    const isChallengeLevel = levelNumber > 20 && (levelNumber - 1) % 20 === 0;
+    const isBossLevel = levelNumber > 0 && levelNumber % BOSS_LEVEL_INTERVAL === 0;
 
-    // Make levels 1-5 easier, then ramp up difficulty.
-    let difficulty: number;
-    if (levelNumber <= 5) {
-      difficulty = 0.05 + (levelNumber - 1) * 0.05; // 0.05, 0.10, 0.15, 0.20, 0.25
-    } else {
-      // Smoothly ramp up to max difficulty around level 50
-      difficulty = Math.min(1.0, 0.25 + (levelNumber - 5) * 0.017);
+    if (isBossLevel) {
+        // Simple boss arena
+        level.push({ id: `p_start`, type: 'platform', x: 0, y: GAME_HEIGHT - 40, width: GAME_WIDTH, height: 40 });
+        const def = ENEMY_DEFINITIONS.boss_1;
+        level.push({
+            id: 'boss_main',
+            type: 'enemy',
+            enemyType: 'boss_1',
+            x: GAME_WIDTH - def.width - 50,
+            y: GAME_HEIGHT - 40 - def.height,
+            width: def.width,
+            height: def.height,
+        });
+        // Goal appears after boss is defeated, so it's not generated here initially.
+        return level;
     }
+
+    // Regular level generation
+    let difficulty = Math.min(1.0, 0.05 + (levelNumber - 1) * 0.01);
     
     let currentX = 0;
     let currentY = GAME_HEIGHT - 100;
 
-    // Start platform
     level.push({ id: `p_${idCounter++}`, type: 'platform', x: 0, y: GAME_HEIGHT - 40, width: 150, height: 40 });
     currentX = 150;
     currentY = GAME_HEIGHT - 40;
 
-    // Determine level length based on difficulty
-    const levelLength = 15 + Math.floor(rand() * 5) + Math.floor(difficulty * 30) + (isChallengeLevel ? 10 : 0);
+    const levelLength = 15 + Math.floor(rand() * 5) + Math.floor(difficulty * 30);
     
-    // Available enemies pool grows as the player progresses
-    const enemyPool: EnemyType[] = ['patrol'];
-    if (levelNumber > 10) enemyPool.push('charger');
-    if (levelNumber > 25) enemyPool.push('shooter');
-    if (levelNumber > 50) enemyPool.push('ninja');
+    // Determine available enemies based on biome/level
+    const biome = getBiomeForLevel(levelNumber);
+    const enemyPool: EnemyType[] = ['patrol', 'charger', 'shooter', 'ninja'];
+    let biomeEnemyPool: EnemyType[] = [];
+    if (biome === 'fire') biomeEnemyPool = ['patrol_fire', 'charger'];
+    else if (biome === 'ice') biomeEnemyPool = ['shooter_ice', 'patrol'];
+    else biomeEnemyPool = enemyPool.filter((_, i) => i < 1 + Math.floor(difficulty * 4)); // Gradually introduce enemies
+
 
     for (let i = 0; i < levelLength; i++) {
-        // Platform width decreases and gap width increases with difficulty
         const platformWidth = Math.max(80, 100 + (rand() * 120) * (1 - difficulty));
         const gapWidth = 60 + rand() * (80 + 80 * difficulty);
-        
         let nextX = currentX + gapWidth;
-        
-        // Vertical variation increases with difficulty
         const yChange = (rand() - 0.48) * 220 * (0.5 + difficulty * 0.7);
-        let nextY = currentY + yChange;
-        // Clamp Y to be within screen bounds
-        nextY = Math.max(100, Math.min(GAME_HEIGHT - 40, nextY));
+        let nextY = Math.max(100, Math.min(GAME_HEIGHT - 40, currentY + yChange));
 
         const newPlatform: LevelObject = {
             id: `p_${idCounter++}`,
@@ -136,10 +192,9 @@ const generateLevel = (levelNumber: number): LevelObject[] => {
 
         let hasHazard = false;
 
-        // Add enemies on the new platform
-        const enemyChance = isChallengeLevel ? 0.7 : 0.15 + difficulty * 0.5;
+        const enemyChance = 0.15 + difficulty * 0.5;
         if (rand() < enemyChance) {
-            const enemyType = enemyPool[Math.floor(rand() * enemyPool.length)];
+            const enemyType = biomeEnemyPool[Math.floor(rand() * biomeEnemyPool.length)];
             const def = ENEMY_DEFINITIONS[enemyType];
             if (def) {
                 level.push({
@@ -155,75 +210,34 @@ const generateLevel = (levelNumber: number): LevelObject[] => {
             }
         }
         
-        // Add hazards on or around the new platform
-        const hazardChance = isChallengeLevel ? 0.65 : 0.1 + difficulty * 0.45;
+        const hazardChance = 0.1 + difficulty * 0.45;
         if (rand() < hazardChance) {
              hasHazard = true;
-            // After level 40, swinging blades can appear
-            if (rand() > 0.4 || levelNumber < 40) { // Spikes are more common
+            if (rand() > 0.4) {
                 const spikeWidth = Math.min(platformWidth, Math.floor(2 + rand() * 4) * 20);
                 const spikeX = nextX + rand() * (platformWidth - spikeWidth);
-                
-                if (rand() > 0.3 || newPlatform.y < 150) { // Ground spikes
-                    level.push({
-                        id: `s_${idCounter++}`,
-                        type: 'spike',
-                        x: spikeX,
-                        y: newPlatform.y - 20, // Above platform
-                        width: spikeWidth,
-                        height: 20,
-                        orientation: 'up'
-                    });
-                } else { // Ceiling spikes
-                    const ceilingY = Math.max(20, newPlatform.y - (100 + rand() * 100));
-                    level.push({
-                        id: `s_${idCounter++}`,
-                        type: 'spike',
-                        x: spikeX,
-                        y: ceilingY,
-                        width: spikeWidth,
-                        height: 20,
-                        orientation: 'down',
-                    });
+                if (rand() > 0.3 || newPlatform.y < 150) {
+                    level.push({ id: `s_${idCounter++}`, type: 'spike', x: spikeX, y: newPlatform.y - 20, width: spikeWidth, height: 20, orientation: 'up' });
+                } else {
+                    level.push({ id: `s_${idCounter++}`, type: 'spike', x: spikeX, y: Math.max(20, newPlatform.y - (100 + rand() * 100)), width: spikeWidth, height: 20, orientation: 'down' });
                 }
-            } else { // Swinging blade hazard
-                 level.push({ 
-                    id: `sb_${idCounter++}`, 
-                    type: 'swingingBlade', 
-                    x:0, y:0, // x,y are calculated in game logic based on pivot and angle
-                    width: 80, 
-                    height: 15, 
-                    pivotX: nextX + platformWidth / 2, 
-                    pivotY: Math.max(20, newPlatform.y - (100 + rand() * 100)), // Pivot above platform
-                    chainLength: 130, 
-                    period: Math.max(1.8, 4 - (difficulty * 2)), // Faster swing on harder levels
-                    initialAngle: (rand() - 0.5) * Math.PI
-                });
+            } else {
+                 level.push({ id: `sb_${idCounter++}`, type: 'swingingBlade', x:0, y:0, width: 80, height: 15, pivotX: nextX + platformWidth / 2, pivotY: Math.max(20, newPlatform.y - (100 + rand() * 100)), chainLength: 130, period: Math.max(1.8, 4 - (difficulty * 2)), initialAngle: (rand() - 0.5) * Math.PI });
             }
         }
         
-        // Add health packs
         const healthPackChance = 0.15;
         if (!hasHazard && rand() < healthPackChance) {
-             level.push({
-                id: `hp_${idCounter++}`,
-                type: 'healthPack',
-                x: nextX + (platformWidth / 2) - 12,
-                y: nextY - 30,
-                width: 24,
-                height: 24
-            });
+             level.push({ id: `hp_${idCounter++}`, type: 'healthPack', x: nextX + (platformWidth / 2) - 12, y: nextY - 30, width: 24, height: 24 });
         }
 
         currentX = nextX + platformWidth;
         currentY = nextY;
     }
 
-    // Goal at the end of the level
-    const goalY = levelNumber > 150 ? currentY - (100 + rand() * 100) : currentY - 80; // Harder to reach goal
+    const goalY = currentY - 80;
     level.push({ id: 'goal', type: 'goal', x: currentX + 100, y: goalY, width: 60, height: 60 });
 
-    // Every 10th level is a pitfall level (no floor)
     if (levelNumber > 5 && levelNumber % 10 !== 0) {
         level.push({ id: 'floor', type: 'platform', x: 0, y: GAME_HEIGHT - 20, width: currentX + 200, height: 20 });
     }
@@ -231,5 +245,4 @@ const generateLevel = (levelNumber: number): LevelObject[] => {
     return level;
 };
 
-// Generate all 250 levels
 export const ALL_LEVELS = Array.from({ length: 250 }, (_, i) => generateLevel(i + 1));

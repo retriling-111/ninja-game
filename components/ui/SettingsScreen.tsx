@@ -1,8 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useContext } from 'react';
+import { AppContext } from '../../contexts/AppContext';
 
 interface SettingsScreenProps {
   onBack: () => void;
   onResetGame: () => void;
+  username: string;
+  onUpdateUsername: (newName: string) => void;
 }
 
 const SettingsRow: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
@@ -12,50 +15,83 @@ const SettingsRow: React.FC<{ label: string; children: React.ReactNode }> = ({ l
     </div>
 );
 
-const IOSSwitch: React.FC<{ checked: boolean; onChange: (e: React.ChangeEvent<HTMLInputElement>) => void; }> = ({ checked, onChange }) => {
-    return (
-        <label className="relative inline-flex items-center cursor-pointer">
-            <input type="checkbox" checked={checked} onChange={onChange} className="sr-only peer" />
-            <div className={`w-12 h-7 rounded-full transition-colors ${checked ? 'bg-red-600' : 'bg-gray-600'}`}></div>
-            <div className={`absolute top-1 left-1 bg-white w-5 h-5 rounded-full transition-transform transform ${checked ? 'translate-x-5' : 'translate-x-0'} shadow-md`}></div>
-        </label>
-    );
-};
+const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack, onResetGame, username, onUpdateUsername }) => {
+  const { volume, setVolume } = useContext(AppContext);
+  const [currentUsername, setCurrentUsername] = useState(username);
+  const [isConfirmingReset, setIsConfirmingReset] = useState(false);
 
-const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack, onResetGame }) => {
-  const [isShakeEnabled, setIsShakeEnabled] = useState(false);
-
-  useEffect(() => {
-    const savedShakeSetting = localStorage.getItem('screenShakeEnabled');
-    setIsShakeEnabled(savedShakeSetting === 'true');
-  }, []);
-
-  const handleShakeToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const enabled = e.target.checked;
-    setIsShakeEnabled(enabled);
-    localStorage.setItem('screenShakeEnabled', JSON.stringify(enabled));
+  const handleSaveUsername = () => {
+      if (currentUsername.trim()) {
+          onUpdateUsername(currentUsername.trim());
+          alert('Username updated!');
+      }
   };
-
+  
+  const handleResetClick = () => {
+      onResetGame();
+      setIsConfirmingReset(false);
+  }
 
   return (
     <div className="text-center animate-fadeIn flex flex-col items-center justify-center max-w-xl w-full p-4">
        <div className="bg-black/50 ios-backdrop-blur p-8 rounded-2xl border border-white/10 shadow-2xl w-full">
-          <h1 className="text-5xl md:text-6xl font-bold text-red-600 blood-text-shadow">
+          <h1 className="text-5xl md-text-6xl font-bold text-red-600 blood-text-shadow">
             Settings
           </h1>
           
           <div className="mt-8 w-full flex flex-col">
-            
-            <SettingsRow label="Screen Shake">
-                <IOSSwitch checked={isShakeEnabled} onChange={handleShakeToggle} />
+             <SettingsRow label="Volume">
+                <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.05"
+                    value={volume}
+                    onChange={(e) => setVolume(parseFloat(e.target.value))}
+                    className="w-32 accent-red-600"
+                />
+            </SettingsRow>
+            <SettingsRow label="Edit Name">
+                <div className="flex items-center gap-2">
+                    <input 
+                        type="text"
+                        value={currentUsername}
+                        onChange={(e) => setCurrentUsername(e.target.value)}
+                        className="px-2 py-1 bg-gray-800 border-2 border-gray-600 text-white font-semibold text-base rounded-lg w-32 text-center focus:outline-none focus:border-red-600"
+                    />
+                     <button 
+                        onClick={handleSaveUsername}
+                        className="px-3 py-1 bg-red-700 hover:bg-red-600 text-white font-semibold text-sm rounded-lg"
+                        >
+                        Save
+                    </button>
+                </div>
             </SettingsRow>
              <SettingsRow label="Reset Progress">
-                <button 
-                  onClick={onResetGame}
-                  className="px-4 py-2 bg-red-900 hover:bg-red-800 border border-red-700 text-white font-semibold text-sm transition-all duration-300 rounded-lg"
-                >
-                  Reset Game
-                </button>
+                 {!isConfirmingReset ? (
+                    <button 
+                      onClick={() => setIsConfirmingReset(true)}
+                      className="px-4 py-2 bg-red-900 hover:bg-red-800 border border-red-700 text-white font-semibold text-sm transition-all duration-300 rounded-lg"
+                    >
+                      Reset Game
+                    </button>
+                 ) : (
+                    <div className="flex items-center gap-2">
+                        <span className="text-gray-300 text-sm">Are you sure?</span>
+                         <button 
+                            onClick={handleResetClick}
+                            className="px-3 py-1 bg-red-700 hover:bg-red-600 text-white font-semibold text-sm rounded-lg"
+                        >
+                            Yes
+                        </button>
+                        <button 
+                            onClick={() => setIsConfirmingReset(false)}
+                            className="px-3 py-1 bg-gray-700 hover:bg-gray-600 text-white font-semibold text-sm rounded-lg"
+                        >
+                            No
+                        </button>
+                    </div>
+                 )}
             </SettingsRow>
           </div>
 

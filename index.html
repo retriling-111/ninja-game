@@ -152,6 +152,36 @@
         -webkit-backdrop-filter: blur(10px);
         backdrop-filter: blur(10px);
       }
+      @keyframes player-teleport {
+        0% { opacity: 0.3; transform: scaleX(0.5) scaleY(1.2); }
+        50% { opacity: 1; transform: scaleX(1.2) scaleY(0.8); }
+        100% { opacity: 1; transform: scale(1); }
+      }
+      .player-teleporting {
+        animation: player-teleport 0.2s ease-out forwards;
+      }
+
+      /* Biome Backgrounds */
+      /* Add your background images here! */
+      .biome-default {
+        background-color: #1a202c; /* Default dark background */
+      }
+      .biome-fire {
+        /* example: background-image: url('/backgrounds/fire_world.png'); */
+        background: linear-gradient(to bottom, #4a0404, #000000);
+      }
+      .biome-ice {
+        /* example: background-image: url('/backgrounds/ice_world.png'); */
+        background: linear-gradient(to bottom, #0c2a4c, #000000);
+      }
+       .biome-forest {
+        /* example: background-image: url('/backgrounds/forest_world.png'); */
+        background: linear-gradient(to bottom, #044a0c, #000000);
+      }
+      .biome-sky {
+        /* example: background-image: url('/backgrounds/sky_world.png'); */
+        background: linear-gradient(to bottom, #2c5282, #6b46c1);
+      }
     </style>
   <script type="importmap">
 {
