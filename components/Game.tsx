@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect, useMemo } from 'react';
 import { useGameLoop } from '../hooks/useGameLoop';
-import { useKeyboardInput } from '../hooks/useKeyboardInput';
+import { useControls } from '../hooks/useControls';
+import { useControlsContext } from '../contexts/ControlsContext';
 import type { PlayerState, LevelObject, GameObject, EnemyState, ProjectileState, EnemyType, SwingingBladeState, ShurikenProjectileState } from '../types';
 import { GAME_WIDTH, GAME_HEIGHT, PLAYER, PHYSICS, ALL_LEVELS, ENEMY, ENEMY_DEFINITIONS, getBiomeForLevel, BOSS_LEVEL_INTERVAL, getBossStats } from '../constants';
 import Player from './Player';
@@ -107,21 +108,35 @@ const MobileControlButton: React.FC<{
 };
 
 const MobileControls: React.FC<MobileControlsProps> = ({ onKeyPress, onKeyRelease }) => {
+    const { keymap, mobileLayout } = useControlsContext();
+
+    const movementStyle: React.CSSProperties = {
+      position: 'absolute',
+      bottom: `${mobileLayout.movement.bottom}px`,
+      left: `${mobileLayout.movement.left}px`,
+    };
+
+    const actionsStyle: React.CSSProperties = {
+      position: 'absolute',
+      bottom: `${mobileLayout.actions.bottom}px`,
+      right: `${mobileLayout.actions.right}px`,
+    };
+
     return (
         <div className="absolute inset-0 z-20 pointer-events-none">
             {/* Movement Controls */}
-            <div className="absolute bottom-4 left-4 flex items-center gap-4 pointer-events-auto">
-                <MobileControlButton label="←" actionKey="ArrowLeft" onKeyPress={onKeyPress} onKeyRelease={onKeyRelease} />
-                <MobileControlButton label="→" actionKey="ArrowRight" onKeyPress={onKeyPress} onKeyRelease={onKeyRelease} />
+            <div style={movementStyle} className="flex items-center gap-4 pointer-events-auto">
+                <MobileControlButton label="←" actionKey={keymap.moveLeft} onKeyPress={onKeyPress} onKeyRelease={onKeyRelease} />
+                <MobileControlButton label="→" actionKey={keymap.moveRight} onKeyPress={onKeyPress} onKeyRelease={onKeyRelease} />
             </div>
 
             {/* Action Controls */}
-            <div className="absolute bottom-4 right-4 flex items-end gap-3 pointer-events-auto">
-                 <MobileControlButton label="S" actionKey="s" onKeyPress={onKeyPress} onKeyRelease={onKeyRelease} className="w-14 h-14" />
-                 <MobileControlButton label="D" actionKey="d" onKeyPress={onKeyPress} onKeyRelease={onKeyRelease} className="w-14 h-14" />
-                 <MobileControlButton label="W" actionKey="w" onKeyPress={onKeyPress} onKeyRelease={onKeyRelease} className="w-14 h-14" />
-                 <MobileControlButton label="A" actionKey="a" onKeyPress={onKeyPress} onKeyRelease={onKeyRelease} />
-                 <MobileControlButton label="↑" actionKey="ArrowUp" onKeyPress={onKeyPress} onKeyRelease={onKeyRelease} className="w-20 h-20 text-4xl"/>
+            <div style={actionsStyle} className="flex items-end gap-3 pointer-events-auto">
+                 <MobileControlButton label="S" actionKey={keymap.shield} onKeyPress={onKeyPress} onKeyRelease={onKeyRelease} className="w-14 h-14" />
+                 <MobileControlButton label="D" actionKey={keymap.dash} onKeyPress={onKeyPress} onKeyRelease={onKeyRelease} className="w-14 h-14" />
+                 <MobileControlButton label="W" actionKey={keymap.shuriken} onKeyPress={onKeyPress} onKeyRelease={onKeyRelease} className="w-14 h-14" />
+                 <MobileControlButton label="A" actionKey={keymap.attack} onKeyPress={onKeyPress} onKeyRelease={onKeyRelease} />
+                 <MobileControlButton label="↑" actionKey={keymap.jump} onKeyPress={onKeyPress} onKeyRelease={onKeyRelease} className="w-20 h-20 text-4xl"/>
             </div>
         </div>
     );
@@ -479,6 +494,9 @@ const Game: React.FC<GameProps> = ({ level, onGameOver, onLevelComplete, onGoToM
   const gameContainerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState<number | null>(null);
 
+  const { pressKey, releaseKey, keymap } = useControlsContext();
+  const controls = useControls();
+
   const playerRef = useRef<PlayerState>({
     id: 'player',
     x: 50,
@@ -511,10 +529,6 @@ const Game: React.FC<GameProps> = ({ level, onGameOver, onLevelComplete, onGoToM
   const [healthPacks, setHealthPacks] = useState<LevelObject[]>([]);
   const [shuriken, setShuriken] = useState<ShurikenProjectileState | null>(null);
   
-  const keyboardPressedKeys = useKeyboardInput();
-  const [touchPressedKeys, setTouchPressedKeys] = useState<Set<string>>(new Set());
-  const pressedKeys = useMemo(() => new Set([...keyboardPressedKeys, ...touchPressedKeys].map(key => key.toLowerCase())), [keyboardPressedKeys, touchPressedKeys]);
-  const prevPressedKeys = useRef<Set<string>>(new Set());
   const hitEnemiesDuringSwing = useRef(new Set<string>());
   
   const cameraRef = useRef({ x: 0, y: 0 });
@@ -566,13 +580,13 @@ const Game: React.FC<GameProps> = ({ level, onGameOver, onLevelComplete, onGoToM
   // Pause listener
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-        if (e.key.toLowerCase() === 'p' || e.key === 'Escape') {
+        if (e.key.toLowerCase() === keymap.pause.toLowerCase() || e.key === 'Escape') {
             setIsPaused(prev => !prev);
         }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [keymap]);
 
   // Level setup
   useEffect(() => {
@@ -620,23 +634,10 @@ const Game: React.FC<GameProps> = ({ level, onGameOver, onLevelComplete, onGoToM
 
   }, [level, currentLevelData, isBossLevel]);
 
-  const handleTouchKeyPress = (key: string) => {
-    setTouchPressedKeys(prev => new Set(prev).add(key));
-  };
-  const handleTouchKeyRelease = (key: string) => {
-    setTouchPressedKeys(prev => {
-        const newKeys = new Set(prev);
-        newKeys.delete(key);
-        return newKeys;
-    });
-  };
-
   useGameLoop((deltaTime) => {
     if (isPaused) return;
 
     const player = playerRef.current;
-    
-    const justPressed = (key: string) => pressedKeys.has(key.toLowerCase()) && !prevPressedKeys.current.has(key.toLowerCase());
 
     // --- PLAYER TIMERS ---
     if (player.attackCooldown > 0) player.attackCooldown -= deltaTime;
@@ -656,7 +657,7 @@ const Game: React.FC<GameProps> = ({ level, onGameOver, onLevelComplete, onGoToM
 
 
     // --- PLAYER INPUT & MOVEMENT ---
-     if (justPressed('w') && player.teleportCooldown <= 0) {
+     if (controls.isActionJustPressed('shuriken') && player.teleportCooldown <= 0) {
         if (!shuriken) {
             // Throw shuriken
             player.shurikenOut = true;
@@ -686,7 +687,7 @@ const Game: React.FC<GameProps> = ({ level, onGameOver, onLevelComplete, onGoToM
         }
     }
 
-    if (justPressed('d') && player.dashCooldown <= 0 && !player.isDashing) {
+    if (controls.isActionJustPressed('dash') && player.dashCooldown <= 0 && !player.isDashing) {
         player.isDashing = true;
         player.dashTimer = PLAYER.DASH_DURATION;
         player.dashCooldown = PLAYER.DASH_COOLDOWN;
@@ -694,13 +695,13 @@ const Game: React.FC<GameProps> = ({ level, onGameOver, onLevelComplete, onGoToM
         player.vy = 0;
     }
 
-    if (justPressed('s') && player.shieldCooldown <= 0) {
+    if (controls.isActionJustPressed('shield') && player.shieldCooldown <= 0) {
       player.isShielding = true;
       player.shieldTimer = PLAYER.SHIELD_DURATION;
       player.shieldCooldown = PLAYER.SHIELD_COOLDOWN;
     }
 
-    if (justPressed('a')) {
+    if (controls.isActionJustPressed('attack')) {
         hitEnemiesDuringSwing.current.clear();
         if(player.attackCooldown <= 0) {
             player.isAttacking = true;
@@ -713,16 +714,16 @@ const Game: React.FC<GameProps> = ({ level, onGameOver, onLevelComplete, onGoToM
         player.vx = (player.direction === 'right' ? 1 : -1) * PLAYER.DASH_SPEED;
     } else {
         player.vx = 0;
-        if (pressedKeys.has('arrowleft')) {
+        if (controls.isActionPressed('moveLeft')) {
           player.vx = -PLAYER.SPEED;
           player.direction = 'left';
         }
-        if (pressedKeys.has('arrowright')) {
+        if (controls.isActionPressed('moveRight')) {
           player.vx = PLAYER.SPEED;
           player.direction = 'right';
         }
         
-        if (justPressed('arrowup')) {
+        if (controls.isActionJustPressed('jump')) {
           if (player.isOnGround) {
             player.vy = -PLAYER.JUMP_FORCE;
             player.isOnGround = false;
@@ -945,7 +946,6 @@ const Game: React.FC<GameProps> = ({ level, onGameOver, onLevelComplete, onGoToM
     camera.y = 0;
     camera.x = Math.max(0, Math.min(camera.x, levelWidth.current - GAME_WIDTH));
 
-    prevPressedKeys.current = new Set([...pressedKeys].map(k => k.toLowerCase()));
     setFrame(f => f + 1);
   });
 
@@ -960,6 +960,7 @@ const Game: React.FC<GameProps> = ({ level, onGameOver, onLevelComplete, onGoToM
 
   const camera = cameraRef.current;
   const biome = getBiomeForLevel(level);
+  const { getKeyForAction } = useControlsContext();
 
   return (
     <div
@@ -973,7 +974,7 @@ const Game: React.FC<GameProps> = ({ level, onGameOver, onLevelComplete, onGoToM
     >
       {/* Non-scaled UI overlays */}
       {isPaused && <PauseMenu onResume={() => setIsPaused(false)} onRestart={onRestartCurrentLevel} onGoToMainMenu={onGoToMainMenu} />}
-      {!isDesktop && <MobileControls onKeyPress={handleTouchKeyPress} onKeyRelease={handleTouchKeyRelease} />}
+      {!isDesktop && <MobileControls onKeyPress={pressKey} onKeyRelease={releaseKey} />}
       
       {/* Scaled game container */}
       <div
@@ -989,9 +990,9 @@ const Game: React.FC<GameProps> = ({ level, onGameOver, onLevelComplete, onGoToM
         <div className="absolute top-4 left-4 flex items-center gap-2 p-2 bg-black/40 ios-backdrop-blur rounded-xl border border-white/10 z-10">
           <HealthBar health={playerRef.current.health} maxHealth={PLAYER.INITIAL_HEALTH} />
           <div className="w-px h-8 bg-white/20 mx-1"></div>
-          <CooldownIndicator cooldown={playerRef.current.dashCooldown} maxCooldown={PLAYER.DASH_COOLDOWN} label="D" />
-          <CooldownIndicator cooldown={playerRef.current.shieldCooldown} maxCooldown={PLAYER.SHIELD_COOLDOWN} label="S" />
-          <CooldownIndicator cooldown={playerRef.current.teleportCooldown} maxCooldown={PLAYER.TELEPORT_COOLDOWN} label="W" />
+          <CooldownIndicator cooldown={playerRef.current.dashCooldown} maxCooldown={PLAYER.DASH_COOLDOWN} label={getKeyForAction('dash')} />
+          <CooldownIndicator cooldown={playerRef.current.shieldCooldown} maxCooldown={PLAYER.SHIELD_COOLDOWN} label={getKeyForAction('shield')} />
+          <CooldownIndicator cooldown={playerRef.current.teleportCooldown} maxCooldown={PLAYER.TELEPORT_COOLDOWN} label={getKeyForAction('shuriken')} />
         </div>
 
         <div className="absolute top-2 left-1/2 -translate-x-1/2 p-2 px-4 bg-black/40 ios-backdrop-blur rounded-xl border border-white/10 z-10 text-lg font-semibold text-white">

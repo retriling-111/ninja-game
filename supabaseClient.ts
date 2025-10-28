@@ -23,7 +23,7 @@ if (!supabaseUrl || !supabaseAnonKey || supabaseUrl.includes('ywdkywywqfuyubhhww
   );
   
   // Create a dummy client that will fail gracefully, allowing offline mode to function.
-  const mockError = { message: 'Supabase not configured', code: 'NO_CREDS', details: '', hint: '' };
+  const mockError = { name: 'MockError', message: 'Supabase not configured', code: 'NO_CREDS', details: '', hint: '' };
   
   // A mock query builder that allows chaining and returns a mock error.
   const dummyQueryBuilder = {
@@ -41,11 +41,21 @@ if (!supabaseUrl || !supabaseAnonKey || supabaseUrl.includes('ywdkywywqfuyubhhww
     }
   };
 
+  const dummyAuth = {
+    getSession: () => Promise.resolve({ data: { session: null }, error: null }),
+    onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
+    signUp: () => Promise.resolve({ data: { user: null, session: null }, error: mockError }),
+    signInWithPassword: () => Promise.resolve({ data: { user: null, session: null }, error: mockError }),
+    signOut: () => Promise.resolve({ error: null }),
+    updateUser: () => Promise.resolve({ data: { user: null }, error: mockError }),
+  };
+
   const dummySupabase = {
     from: (_tableName: string) => ({
       upsert: () => Promise.resolve({ error: mockError }),
       select: (_columns: string) => dummyQueryBuilder,
     }),
+    auth: dummyAuth,
   };
 
   supabaseClient = dummySupabase as any; // Cast to any to satisfy the SupabaseClient type

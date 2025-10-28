@@ -1,4 +1,13 @@
-export type GameStatus = 'loading' | 'login' | 'loadingData' | 'start' | 'playing' | 'gameOver' | 'win' | 'about' | 'levels' | 'settings' | 'gameEnd' | 'levelComplete' | 'leaderboard';
+export type GameStatus = 'loading' | 'login' | 'signup' | 'loadingData' | 'start' | 'playing' | 'gameOver' | 'win' | 'about' | 'levels' | 'settings' | 'gameEnd' | 'levelComplete' | 'leaderboard';
+
+export type ControlAction = 'moveLeft' | 'moveRight' | 'jump' | 'attack' | 'dash' | 'shield' | 'shuriken' | 'pause';
+export type Keymap = Record<ControlAction, string>;
+
+// --- Mobile UI Customization Types ---
+export type MobileUIGroup = 'movement' | 'actions';
+export type MobileUIPosition = { bottom: number; left?: number; right?: number };
+export type MobileUILayout = Record<MobileUIGroup, MobileUIPosition>;
+// --- End Mobile UI Types ---
 
 export interface GameObject {
   id: string;

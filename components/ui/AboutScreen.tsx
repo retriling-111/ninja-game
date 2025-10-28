@@ -1,14 +1,28 @@
 import React from 'react';
+import { useControlsContext } from '../../contexts/ControlsContext';
+import type { ControlAction } from '../../types';
 
 interface AboutScreenProps {
   onBack: () => void;
 }
 
 const ControlItem: React.FC<{ keyName: string; action: string }> = ({ keyName, action }) => (
-  <li><span className="font-semibold text-gray-200">{keyName}:</span> {action}</li>
+  <li><span className="font-semibold text-gray-200 uppercase">{keyName}:</span> {action}</li>
 );
 
 const AboutScreen: React.FC<AboutScreenProps> = ({ onBack }) => {
+  const { getKeyForAction } = useControlsContext();
+
+  const controlsMap: { action: ControlAction, label: string }[] = [
+      { action: 'moveLeft', label: 'Move' },
+      { action: 'jump', label: 'Jump / Double Jump' },
+      { action: 'attack', label: 'Attack' },
+      { action: 'dash', label: 'Dash' },
+      { action: 'shield', label: 'Shield' },
+      { action: 'shuriken', label: 'Throw/Teleport to Shuriken' },
+      { action: 'pause', label: 'Pause' },
+  ];
+
   return (
     <div className="animate-fadeIn flex flex-col items-center justify-center w-full h-full p-4">
       <div className="bg-black/50 ios-backdrop-blur p-6 md:p-8 rounded-2xl border border-white/10 shadow-2xl w-full max-w-2xl h-full max-h-[90vh] flex flex-col">
@@ -25,13 +39,11 @@ const AboutScreen: React.FC<AboutScreenProps> = ({ onBack }) => {
               <div className="flex-1">
                   <h2 className="text-xl font-bold text-white mb-2">Controls:</h2>
                   <ul className="space-y-1 list-inside">
-                    <ControlItem keyName="← / →" action="Move" />
-                    <ControlItem keyName="↑" action="Jump / Double Jump" />
-                    <ControlItem keyName="A" action="Attack" />
-                    <ControlItem keyName="D" action="Dash" />
-                    <ControlItem keyName="S" action="Shield" />
-                    <ControlItem keyName="W" action="Throw/Teleport to Shuriken" />
-                    <ControlItem keyName="P / Esc" action="Pause" />
+                    <li><span className="font-semibold text-gray-200 uppercase">{`${getKeyForAction('moveLeft')} / ${getKeyForAction('moveRight')}`}:</span> Move</li>
+                    {controlsMap.filter(c => c.action !== 'moveLeft' && c.action !== 'moveRight').map(({ action, label }) => (
+                       <ControlItem key={action} keyName={getKeyForAction(action)} action={label} />
+                    ))}
+                    <li><span className="font-semibold text-gray-200">ESC:</span> Also Pauses</li>
                   </ul>
               </div>
             </div>
@@ -40,6 +52,7 @@ const AboutScreen: React.FC<AboutScreenProps> = ({ onBack }) => {
                <h2 className="text-xl font-bold text-white mb-2">Support & Feedback</h2>
                <p>For feedback or bug reports, find me on Telegram:</p>
                <a href="https://t.me/IamJustALoser" target="_blank" rel="noopener noreferrer" className="text-red-500 hover:text-red-400">@IamJustALoser</a>
+             <br/>
                <a href="mailto:retriling123@gmail.com" target="_blank" rel="noopener noreferrer" className="text-red-500 hover:text-red-400">retriling123@gmail.com</a>
             </div>
         </div>

@@ -1,6 +1,9 @@
+
 import React, { useState, useCallback, useEffect } from 'react';
 import type { GameStatus } from './types';
-import { savePlayerData, loadPlayerData, getOffline, clearOffline } from './data/supabase';
+import type { Session } from '@supabase/supabase-js';
+import { supabase } from './supabaseClient';
+import { savePlayerData, loadPlayerData, clearOffline, signOut } from './data/supabase';
 import Game from './components/Game';
 import StartScreen from './components/ui/StartScreen';
 import EndScreen from './components/ui/EndScreen';
@@ -13,92 +16,86 @@ import LevelCompleteScreen from './components/ui/LevelCompleteScreen';
 import LeaderboardScreen from './components/ui/LeaderboardScreen';
 import { ALL_LEVELS } from './constants';
 
+interface PlayerProfile {
+    username: string;
+    current_level: number;
+    dead_count: number;
+}
+
 const App: React.FC = () => {
   const [gameStatus, setGameStatus] = useState<GameStatus>('loading');
-  const [username, setUsername] = useState<string | null>(null);
-  const [currentLevel, setCurrentLevel] = useState(1);
-  const [deathCount, setDeathCount] = useState(0);
+  const [session, setSession] = useState<Session | null>(null);
+  const [playerProfile, setPlayerProfile] = useState<PlayerProfile | null>(null);
   const [gameKey, setGameKey] = useState(0);
 
-  // --- OFFLINE SYNC ---
-  const syncOfflineData = useCallback(async () => {
-    const offlineData = getOffline();
-    if (offlineData && navigator.onLine) {
-      console.log('Online, attempting to sync offline data...');
-      await savePlayerData(offlineData.username, offlineData.dead_count, offlineData.current_level);
-      clearOffline();
-      console.log('Offline data synced.');
-    }
-  }, []);
-
+  // --- AUTH & SESSION MANAGEMENT ---
   useEffect(() => {
-    window.addEventListener('online', syncOfflineData);
-    return () => {
-      window.removeEventListener('online', syncOfflineData);
-    };
-  }, [syncOfflineData]);
-
-
-  // --- INITIAL LOAD ---
-  useEffect(() => {
-    // Show loading screen briefly for better perceived performance
-    setTimeout(() => {
-      const savedUsername = localStorage.getItem('crimsonShinobi_username');
-      if (savedUsername) {
-        setUsername(savedUsername);
-        setGameStatus('loadingData');
-      } else {
+    // Check for initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      if (!session) {
         setGameStatus('login');
+      } else {
+        setGameStatus('loadingData');
       }
-    }, 1000); // 1 second loading screen
+    });
+
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+       if (!session) {
+         setPlayerProfile(null);
+         setGameStatus('login');
+       } else if (_event === 'SIGNED_IN') {
+         setGameStatus('loadingData');
+       }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   // --- DATA LOADING ---
   useEffect(() => {
     const loadData = async () => {
-      if (gameStatus === 'loadingData' && username) {
-        const data = await loadPlayerData(username);
+      if (gameStatus === 'loadingData' && session?.user) {
+        const data = await loadPlayerData(session.user.id);
         if (data) {
-          setCurrentLevel(data.current_level);
-          setDeathCount(data.dead_count);
+          setPlayerProfile(data);
         } else {
-          // If no data on server, check offline or start fresh
-          const offlineData = getOffline();
-           if(offlineData && offlineData.username === username) {
-             setCurrentLevel(offlineData.current_level);
-             setDeathCount(offlineData.dead_count);
-           } else {
-             setCurrentLevel(1);
-             setDeathCount(0);
-           }
+            // This might happen if profile creation failed after signup.
+            // Forcing logout so they can try again.
+            console.error("Failed to load player profile, logging out.");
+            signOut();
+            return;
         }
         setGameStatus('start');
       }
     };
     loadData();
-  }, [gameStatus, username]);
+  }, [gameStatus, session]);
   
-  const updateUsername = (newName: string) => {
-      setUsername(newName);
-      localStorage.setItem('crimsonShinobi_username', newName);
-      // Here you might want to handle data migration if names are primary keys,
-      // but for this app, we'll assume we continue with the same progress.
+
+  const updatePlayerProfile = (updates: Partial<PlayerProfile>) => {
+      if (playerProfile) {
+          setPlayerProfile(prev => prev ? { ...prev, ...updates } : null);
+      }
   };
 
   // --- GAME STATE HANDLERS ---
-  const handleLogin = (name: string) => {
-    updateUsername(name);
+  const handleLoginSuccess = () => {
     setGameStatus('loadingData');
   };
 
   const startGame = useCallback(async (level: number) => {
-    setCurrentLevel(level);
+    if (playerProfile && session) {
+      const newProfile = { ...playerProfile, current_level: level };
+      setPlayerProfile(newProfile);
+      // FIX: Pass username to savePlayerData to support offline saving.
+      await savePlayerData(session.user.id, newProfile.dead_count, newProfile.current_level, newProfile.username);
+    }
     setGameStatus('playing');
     setGameKey(prev => prev + 1);
-     if (username) {
-      await savePlayerData(username, deathCount, level);
-    }
-  }, [username, deathCount]);
+  }, [session, playerProfile]);
 
   const goToMainMenu = useCallback(() => setGameStatus('start'), []);
   const showAbout = useCallback(() => setGameStatus('about'), []);
@@ -111,41 +108,46 @@ const App: React.FC = () => {
   }, []);
 
   const handleGameOver = useCallback(async () => {
-    const newDeathCount = deathCount + 1;
-    setDeathCount(newDeathCount);
-    setGameStatus('gameOver');
-    if (username) {
-      await savePlayerData(username, newDeathCount, currentLevel);
+    if (playerProfile && session) {
+        const newDeathCount = playerProfile.dead_count + 1;
+        const newProfile = { ...playerProfile, dead_count: newDeathCount };
+        setPlayerProfile(newProfile);
+        setGameStatus('gameOver');
+        // FIX: Pass username to savePlayerData to support offline saving.
+        await savePlayerData(session.user.id, newProfile.dead_count, newProfile.current_level, newProfile.username);
     }
-  }, [deathCount, username, currentLevel]);
+  }, [playerProfile, session]);
 
   const handleLevelComplete = useCallback(() => {
-    if (currentLevel < ALL_LEVELS.length) {
+    if (playerProfile && playerProfile.current_level < ALL_LEVELS.length) {
       setGameStatus('levelComplete');
     } else {
       setGameStatus('gameEnd');
     }
-  }, [currentLevel]);
+  }, [playerProfile]);
 
   const handleContinueToNextLevel = useCallback(async () => {
-    const nextLevel = currentLevel + 1;
-     if (username) {
-      await savePlayerData(username, deathCount, nextLevel);
+    if (playerProfile && session) {
+        const nextLevel = playerProfile.current_level + 1;
+        startGame(nextLevel);
     }
-    startGame(nextLevel);
-  }, [currentLevel, startGame, username, deathCount]);
+  }, [playerProfile, session, startGame]);
+  
+  const handleSignOut = async () => {
+      await signOut();
+      setGameStatus('login');
+  };
 
   const handleResetGame = useCallback(async () => {
-    const newLevel = 1;
-    const newDeaths = 0;
-    setCurrentLevel(newLevel);
-    setDeathCount(newDeaths);
-    setGameStatus('start');
-    if (username) {
-      await savePlayerData(username, newDeaths, newLevel);
+    if (playerProfile && session) {
+        const newProfile = { ...playerProfile, current_level: 1, dead_count: 0 };
+        setPlayerProfile(newProfile);
+        setGameStatus('start');
+        // FIX: Pass username to savePlayerData to support offline saving.
+        await savePlayerData(session.user.id, newProfile.dead_count, newProfile.current_level, newProfile.username);
+        clearOffline();
     }
-    clearOffline();
-  }, [username]);
+  }, [session, playerProfile]);
 
   const renderContent = () => {
     switch (gameStatus) {
@@ -153,44 +155,52 @@ const App: React.FC = () => {
       case 'loadingData':
         return <LoadingScreen />;
       case 'login':
-        return <LoginScreen onLogin={handleLogin} />;
+      case 'signup':
+        return <LoginScreen onLoginSuccess={handleLoginSuccess} />;
       case 'start':
+        if (!playerProfile) return <LoadingScreen />;
         return <StartScreen 
-                  onStart={() => startGame(currentLevel)} 
+                  onStart={() => startGame(playerProfile.current_level)} 
                   onShowAbout={showAbout} 
                   onShowLevels={showLevels}
                   onShowSettings={showSettings}
                   onShowLeaderboard={showLeaderboard}
-                  currentLevel={currentLevel}
-                  deathCount={deathCount}
-                  username={username || ''}
+                  currentLevel={playerProfile.current_level}
+                  deathCount={playerProfile.dead_count}
+                  username={playerProfile.username}
                 />;
       case 'about':
         return <AboutScreen onBack={goToMainMenu} />;
       case 'levels':
         return <LevelsScreen onBack={goToMainMenu} onSelectLevel={startGame} />;
       case 'settings':
+         if (!playerProfile || !session) return <LoadingScreen />;
         return <SettingsScreen 
                   onBack={goToMainMenu} 
                   onResetGame={handleResetGame} 
-                  username={username || ''}
-                  onUpdateUsername={updateUsername}
+                  username={playerProfile.username}
+                  onUpdateProfile={updatePlayerProfile}
+                  onSignOut={handleSignOut}
+                  userId={session.user.id}
                 />;
       case 'leaderboard':
         return <LeaderboardScreen onBack={goToMainMenu} />;
       case 'playing':
+        if (!playerProfile) return <LoadingScreen />;
         return <Game 
                   key={gameKey} 
-                  level={currentLevel} 
+                  level={playerProfile.current_level} 
                   onGameOver={handleGameOver} 
                   onLevelComplete={handleLevelComplete} 
                   onGoToMainMenu={goToMainMenu}
                   onRestartCurrentLevel={restartCurrentLevel}
                 />;
       case 'gameOver':
-        return <EndScreen status="gameOver" onRestart={() => startGame(currentLevel)} deathCount={deathCount} />;
+         if (!playerProfile) return <LoadingScreen />;
+        return <EndScreen status="gameOver" onRestart={() => startGame(playerProfile.current_level)} deathCount={playerProfile.dead_count} />;
       case 'levelComplete':
-        return <LevelCompleteScreen onNextLevel={handleContinueToNextLevel} level={currentLevel} />;
+        if (!playerProfile) return <LoadingScreen />;
+        return <LevelCompleteScreen onNextLevel={handleContinueToNextLevel} level={playerProfile.current_level} />;
       case 'gameEnd':
         return <EndScreen status="gameEnd" onRestart={() => startGame(1)} />;
       default:
