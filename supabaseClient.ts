@@ -15,7 +15,7 @@ const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY;
 
 let supabaseClient: SupabaseClient;
 
-if (!supabaseUrl || !supabaseAnonKey || supabaseUrl.includes('ywdkywywqfuyubhhwwqz')) {
+if (!supabaseUrl || !supabaseAnonKey || supabaseUrl.includes('stmyqmjmodhhakicrztb')) {
   console.warn(
     `Supabase environment variables not found or are placeholders! 
     App will run in offline-only mode. Saving and loading progress across sessions will not work.
