@@ -3,9 +3,7 @@ import { AppContext } from '../../contexts/AppContext';
 import { useControlsContext, DEFAULT_KEYMAP, formatKey } from '../../contexts/ControlsContext';
 import { updateUserPassword, updateUsername as updateSupabaseUsername } from '../../data/supabase';
 import type { ControlAction, Keymap } from '../../types';
-import { useResponsive } from '../../hooks/useResponsive';
 import MobileLayoutCustomizer from './MobileLayoutCustomizer';
-
 
 interface SettingsScreenProps {
   onBack: () => void;
@@ -108,8 +106,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack, onResetGame, us
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isConfirmingReset, setIsConfirmingReset] = useState(false);
   const [isCustomizingControls, setIsCustomizingControls] = useState(false);
-  const [isCustomizingMobile, setIsCustomizingMobile] = useState(false);
-  const { device } = useResponsive();
+  const [isCustomizingMobileLayout, setIsCustomizingMobileLayout] = useState(false);
 
   const handleSaveUsername = async () => {
       const newName = currentUsername.trim();
@@ -176,17 +173,13 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack, onResetGame, us
                 >
                     Keyboard
                 </button>
+                <button 
+                    onClick={() => setIsCustomizingMobileLayout(true)}
+                    className="px-4 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-600 text-white font-semibold text-sm transition-all duration-300 rounded-lg"
+                >
+                    Mobile
+                </button>
              </SettingsRow>
-             {device !== 'desktop' && (
-                <SettingsRow label="Customize Mobile UI">
-                    <button 
-                        onClick={() => setIsCustomizingMobile(true)}
-                        className="px-4 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-600 text-white font-semibold text-sm transition-all duration-300 rounded-lg"
-                    >
-                        On-Screen
-                    </button>
-                </SettingsRow>
-             )}
              <SettingsRow label="Reset Progress">
                  {!isConfirmingReset ? (
                     <button 
@@ -271,7 +264,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack, onResetGame, us
        </div>
     </div>
     {isCustomizingControls && <ControlsCustomizer onClose={() => setIsCustomizingControls(false)} />}
-    {isCustomizingMobile && <MobileLayoutCustomizer onClose={() => setIsCustomizingMobile(false)} />}
+    {isCustomizingMobileLayout && <MobileLayoutCustomizer onClose={() => setIsCustomizingMobileLayout(false)} />}
     </>
   );
 };

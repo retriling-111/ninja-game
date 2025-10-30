@@ -14,7 +14,8 @@ import HealthPack from './HealthPack';
 import { useResponsive } from '../hooks/useResponsive';
 
 
-// --- NEW IN-FILE COMPONENTS ---
+// --- SUB-COMPONENTS (Moved outside of Game component for stability and performance) ---
+
 const Shuriken: React.FC<{shuriken: ShurikenProjectileState}> = ({ shuriken }) => (
     <div
       style={{
@@ -87,9 +88,7 @@ interface MobileControlButtonProps {
     onKeyRelease: (key: string) => void;
     className?: string;
 }
-
 const MobileControlButton: React.FC<MobileControlButtonProps> = ({ label, actionKey, onKeyPress, onKeyRelease, className }) => {
-      
     return (
         <button
             onTouchStart={() => onKeyPress(actionKey)}
@@ -105,7 +104,7 @@ const MobileControlButton: React.FC<MobileControlButtonProps> = ({ label, action
 };
 
 const MobileControls: React.FC = () => {
-    const { keymap, mobileLayout, pressKey, releaseKey } = useControlsContext();
+    const { keymap, mobileLayout, pressKey, releaseKey, getKeyForAction } = useControlsContext();
 
     const movementStyle: React.CSSProperties = {
       position: 'absolute',
@@ -127,13 +126,13 @@ const MobileControls: React.FC = () => {
                 <MobileControlButton label="→" actionKey={keymap.moveRight} onKeyPress={pressKey} onKeyRelease={releaseKey} />
             </div>
 
-            {/* Action Controls - Labels updated for new keymap */}
+            {/* Action Controls */}
             <div style={actionsStyle} className="flex items-end gap-3 pointer-events-auto">
-                 <MobileControlButton label="S" actionKey={keymap.shield} onKeyPress={pressKey} onKeyRelease={releaseKey} className="w-14 h-14" />
-                 <MobileControlButton label="Dash" actionKey={keymap.dash} onKeyPress={pressKey} onKeyRelease={releaseKey} className="w-14 h-14 text-lg" />
-                 <MobileControlButton label="K" actionKey={keymap.shuriken} onKeyPress={pressKey} onKeyRelease={releaseKey} className="w-14 h-14" />
-                 <MobileControlButton label="J" actionKey={keymap.attack} onKeyPress={pressKey} onKeyRelease={releaseKey} />
-                 <MobileControlButton label="W" actionKey={keymap.jump} onKeyPress={pressKey} onKeyRelease={releaseKey} className="w-20 h-20 text-4xl"/>
+                 <MobileControlButton label={getKeyForAction('shield')} actionKey={keymap.shield} onKeyPress={pressKey} onKeyRelease={releaseKey} className="w-14 h-14" />
+                 <MobileControlButton label={getKeyForAction('dash')} actionKey={keymap.dash} onKeyPress={pressKey} onKeyRelease={releaseKey} className="w-14 h-14 text-lg" />
+                 <MobileControlButton label={getKeyForAction('shuriken')} actionKey={keymap.shuriken} onKeyPress={pressKey} onKeyRelease={releaseKey} className="w-14 h-14" />
+                 <MobileControlButton label={getKeyForAction('attack')} actionKey={keymap.attack} onKeyPress={pressKey} onKeyRelease={releaseKey} />
+                 <MobileControlButton label={'↑'} actionKey={keymap.jump} onKeyPress={pressKey} onKeyRelease={releaseKey} className="w-20 h-20 text-4xl"/>
             </div>
         </div>
     );
@@ -143,7 +142,6 @@ interface TutorialPromptDisplayProps {
     prompt: TutorialPrompt | null;
     getKeyForAction: (action: ControlAction) => string;
 }
-
 const TutorialPromptDisplay: React.FC<TutorialPromptDisplayProps> = ({ prompt, getKeyForAction }) => {
     if (!prompt) return null;
 
@@ -164,6 +162,55 @@ const TutorialPromptDisplay: React.FC<TutorialPromptDisplayProps> = ({ prompt, g
             <div className="bg-black/60 ios-backdrop-blur p-4 rounded-xl border-2 border-red-800/50 text-center text-white text-xl font-semibold shadow-2xl shadow-black">
                 {prompt.text.map((line, i) => <p key={i}>{processText(line)}</p>)}
             </div>
+        </div>
+    );
+};
+
+const HealthBar: React.FC<{ health: number; maxHealth: number; }> = ({ health, maxHealth }) => {
+  const healthIcons = [];
+  for (let i = 0; i < maxHealth; i++) {
+    healthIcons.push(
+       <div key={i} className="w-8 h-8 relative">
+        <svg viewBox="0 0 24 24" className={`w-full h-full transition-colors duration-200 drop-shadow-lg ${i < health ? 'text-red-600' : 'text-gray-800'}`} fill="currentColor">
+          <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+        </svg>
+        { i < health && <div className="absolute inset-0 bg-red-500/30 blur-sm -z-10"></div> }
+      </div>
+    );
+  }
+
+  return <div className="flex gap-1">{healthIcons}</div>;
+};
+
+const CooldownIndicator: React.FC<{ cooldown: number; maxCooldown: number, label: string }> = ({ cooldown, maxCooldown, label }) => {
+    const ready = cooldown <= 0;
+    const fillPercentage = ready ? 1 : Math.max(0, 1 - (cooldown / maxCooldown));
+    const circumference = 2 * Math.PI * 14; // 2 * pi * radius (14)
+    const strokeDashoffset = circumference * (1 - fillPercentage);
+
+    return (
+        <div className={`relative w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 ${ready ? 'bg-red-900/50' : 'bg-black/50'}`}>
+             <svg className="absolute w-full h-full" viewBox="0 0 32 32">
+                <circle
+                    cx="16" cy="16" r="14"
+                    className="stroke-current text-gray-700"
+                    strokeWidth="3"
+                    fill="transparent"
+                />
+                <circle
+                    cx="16" cy="16" r="14"
+                    className="stroke-current text-red-500"
+                    strokeWidth="3"
+                    fill="transparent"
+                    strokeDasharray={circumference}
+                    strokeDashoffset={strokeDashoffset}
+                    style={{ transition: strokeDashoffset > 1 ? 'stroke-dashoffset 0.1s linear' : 'none' }}
+                    transform="rotate(-90 16 16)"
+                />
+            </svg>
+            <span className={`font-semibold z-10 transition-colors ${ready ? 'text-white' : 'text-gray-400'}`}>
+                {label}
+            </span>
         </div>
     );
 };
@@ -449,8 +496,6 @@ const ENEMY_AI_UPDATES: Record<EnemyType, AiUpdateFunction | undefined> = {
 };
 
 
-// --- UI COMPONENTS ---
-
 interface GameProps {
   level: number;
   onGameOver: () => void;
@@ -458,56 +503,6 @@ interface GameProps {
   onGoToMainMenu: () => void;
   onRestartCurrentLevel: () => void;
 }
-
-const HealthBar: React.FC<{ health: number; maxHealth: number; }> = ({ health, maxHealth }) => {
-  const healthIcons = [];
-  for (let i = 0; i < maxHealth; i++) {
-    healthIcons.push(
-       <div key={i} className="w-8 h-8 relative">
-        <svg viewBox="0 0 24 24" className={`w-full h-full transition-colors duration-200 drop-shadow-lg ${i < health ? 'text-red-600' : 'text-gray-800'}`} fill="currentColor">
-          <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-        </svg>
-        { i < health && <div className="absolute inset-0 bg-red-500/30 blur-sm -z-10"></div> }
-      </div>
-    );
-  }
-
-  return <div className="flex gap-1">{healthIcons}</div>;
-};
-
-const CooldownIndicator: React.FC<{ cooldown: number; maxCooldown: number, label: string }> = ({ cooldown, maxCooldown, label }) => {
-    const ready = cooldown <= 0;
-    const fillPercentage = ready ? 1 : Math.max(0, 1 - (cooldown / maxCooldown));
-    const circumference = 2 * Math.PI * 14; // 2 * pi * radius (14)
-    const strokeDashoffset = circumference * (1 - fillPercentage);
-
-    return (
-        <div className={`relative w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 ${ready ? 'bg-red-900/50' : 'bg-black/50'}`}>
-             <svg className="absolute w-full h-full" viewBox="0 0 32 32">
-                <circle
-                    cx="16" cy="16" r="14"
-                    className="stroke-current text-gray-700"
-                    strokeWidth="3"
-                    fill="transparent"
-                />
-                <circle
-                    cx="16" cy="16" r="14"
-                    className="stroke-current text-red-500"
-                    strokeWidth="3"
-                    fill="transparent"
-                    strokeDasharray={circumference}
-                    strokeDashoffset={strokeDashoffset}
-                    style={{ transition: strokeDashoffset > 1 ? 'stroke-dashoffset 0.1s linear' : 'none' }}
-                    transform="rotate(-90 16 16)"
-                />
-            </svg>
-            <span className={`font-semibold z-10 transition-colors ${ready ? 'text-white' : 'text-gray-400'}`}>
-                {label}
-            </span>
-        </div>
-    );
-};
-
 
 // --- MAIN GAME COMPONENT ---
 

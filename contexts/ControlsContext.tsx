@@ -1,16 +1,16 @@
 import React, { createContext, useState, useEffect, ReactNode, useContext, useCallback } from 'react';
 import type { Keymap, ControlAction, MobileUILayout } from '../types';
 
-// UPDATED: Default keymap changed to a more traditional WASD setup for movement
-// and J/K/Space for primary actions. This is a more ergonomic standard.
+// UPDATED: Default keymap changed to the user-requested layout.
+// Arrow keys for movement/jump, and A, S, D, W for actions.
 export const DEFAULT_KEYMAP: Keymap = {
-  moveLeft: 'keya',
-  moveRight: 'keyd',
-  jump: 'keyw',
-  attack: 'keyj',
-  dash: 'space',
+  moveLeft: 'arrowleft',
+  moveRight: 'arrowright',
+  jump: 'arrowup',
+  attack: 'keya',
+  dash: 'keyd',
   shield: 'keys',
-  shuriken: 'keyk',
+  shuriken: 'keyw',
   pause: 'keyp',
 };
 
@@ -21,6 +21,8 @@ export const DEFAULT_MOBILE_LAYOUT: MobileUILayout = {
 };
 
 const KEYMAP_STORAGE_KEY = 'crimsonShinobi_keymap_v2';
+// FIX: Add storage key for mobile layout
+const MOBILE_LAYOUT_STORAGE_KEY = 'crimsonShinobi_mobileLayout';
 
 // NEW HELPER: Normalizes a keymap to all lowercase values
 const normalizeMap = (map: Partial<Keymap>): Keymap => {
@@ -57,6 +59,7 @@ interface ControlsContextType {
   releaseKey: (key: string) => void;
   pressedKeys: ReadonlySet<string>;
   mobileLayout: MobileUILayout;
+  // FIX: Add setMobileLayout and resetMobileLayout to the context type
   setMobileLayout: (newLayout: MobileUILayout) => void;
   resetMobileLayout: () => void;
 }
@@ -70,6 +73,7 @@ export const ControlsContext = createContext<ControlsContextType>({
   releaseKey: () => {},
   pressedKeys: new Set(),
   mobileLayout: DEFAULT_MOBILE_LAYOUT,
+  // FIX: Provide default values for the new context properties
   setMobileLayout: () => {},
   resetMobileLayout: () => {},
 });
@@ -90,12 +94,12 @@ export const ControlsProvider: React.FC<ControlsProviderProps> = ({ children }) 
     return DEFAULT_KEYMAP;
   });
   
+  // FIX: Change mobileLayout to be stateful to allow customization
   const [mobileLayout, _setMobileLayout] = useState<MobileUILayout>(() => {
     try {
-      const savedLayout = localStorage.getItem('crimsonShinobi_mobileLayout');
+      const savedLayout = localStorage.getItem(MOBILE_LAYOUT_STORAGE_KEY);
       if (savedLayout) {
-        const parsed = JSON.parse(savedLayout);
-        return { ...DEFAULT_MOBILE_LAYOUT, ...parsed };
+        return { ...DEFAULT_MOBILE_LAYOUT, ...JSON.parse(savedLayout) };
       }
     } catch (e) { console.error("Failed to load mobile layout", e); }
     return DEFAULT_MOBILE_LAYOUT;
@@ -113,13 +117,15 @@ export const ControlsProvider: React.FC<ControlsProviderProps> = ({ children }) 
 
   const resetKeymap = useCallback(() => setKeymap(DEFAULT_KEYMAP), [setKeymap]);
   
+  // FIX: Implement setMobileLayout to update state and localStorage
   const setMobileLayout = useCallback((newLayout: MobileUILayout) => {
     _setMobileLayout(newLayout);
     try {
-      localStorage.setItem('crimsonShinobi_mobileLayout', JSON.stringify(newLayout));
+      localStorage.setItem(MOBILE_LAYOUT_STORAGE_KEY, JSON.stringify(newLayout));
     } catch (e) { console.error("Failed to save mobile layout", e); }
   }, []);
 
+  // FIX: Implement resetMobileLayout to restore default layout
   const resetMobileLayout = useCallback(() => setMobileLayout(DEFAULT_MOBILE_LAYOUT), [setMobileLayout]);
 
   const getKeyForAction = useCallback((action: ControlAction): string => {
@@ -168,6 +174,7 @@ export const ControlsProvider: React.FC<ControlsProviderProps> = ({ children }) 
     releaseKey,
     pressedKeys,
     mobileLayout,
+    // FIX: Add layout functions to the context value
     setMobileLayout,
     resetMobileLayout,
   };
