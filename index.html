@@ -161,6 +161,14 @@
         animation: player-teleport 0.2s ease-out forwards;
       }
 
+      @keyframes dash-trail-effect {
+        from { transform: scaleX(1.2) scaleY(1); opacity: 0.7; }
+        to { transform: scaleX(2.0) scaleY(0.8); opacity: 0; }
+      }
+      .player-dash-trail {
+        animation: dash-trail-effect 0.25s ease-out forwards;
+      }
+
       /* --- Biome Backgrounds --- */
       @keyframes animated-gradient {
         0%, 100% { background-position: 0% 50%; }

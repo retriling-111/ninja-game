@@ -127,13 +127,13 @@ const MobileControls: React.FC = () => {
                 <MobileControlButton label="→" actionKey={keymap.moveRight} onKeyPress={pressKey} onKeyRelease={releaseKey} />
             </div>
 
-            {/* Action Controls */}
+            {/* Action Controls - Labels updated for new keymap */}
             <div style={actionsStyle} className="flex items-end gap-3 pointer-events-auto">
                  <MobileControlButton label="S" actionKey={keymap.shield} onKeyPress={pressKey} onKeyRelease={releaseKey} className="w-14 h-14" />
-                 <MobileControlButton label="D" actionKey={keymap.dash} onKeyPress={pressKey} onKeyRelease={releaseKey} className="w-14 h-14" />
-                 <MobileControlButton label="W" actionKey={keymap.shuriken} onKeyPress={pressKey} onKeyRelease={releaseKey} className="w-14 h-14" />
-                 <MobileControlButton label="A" actionKey={keymap.attack} onKeyPress={pressKey} onKeyRelease={releaseKey} />
-                 <MobileControlButton label="↑" actionKey={keymap.jump} onKeyPress={pressKey} onKeyRelease={releaseKey} className="w-20 h-20 text-4xl"/>
+                 <MobileControlButton label="Dash" actionKey={keymap.dash} onKeyPress={pressKey} onKeyRelease={releaseKey} className="w-14 h-14 text-lg" />
+                 <MobileControlButton label="K" actionKey={keymap.shuriken} onKeyPress={pressKey} onKeyRelease={releaseKey} className="w-14 h-14" />
+                 <MobileControlButton label="J" actionKey={keymap.attack} onKeyPress={pressKey} onKeyRelease={releaseKey} />
+                 <MobileControlButton label="W" actionKey={keymap.jump} onKeyPress={pressKey} onKeyRelease={releaseKey} className="w-20 h-20 text-4xl"/>
             </div>
         </div>
     );
@@ -611,7 +611,8 @@ const Game: React.FC<GameProps> = ({ level, onGameOver, onLevelComplete, onGoToM
   // Pause listener
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-        if (e.key.toLowerCase() === keymap.pause.toLowerCase() || e.key === 'Escape') {
+        const lowerCode = e.code.toLowerCase();
+        if (lowerCode === keymap.pause.toLowerCase() || lowerCode === 'escape') {
             setIsPaused(prev => !prev);
         }
     };

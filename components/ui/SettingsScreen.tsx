@@ -44,7 +44,8 @@ const ControlsCustomizer: React.FC<{onClose: () => void}> = ({ onClose }) => {
         const handleKeyDown = (event: KeyboardEvent) => {
             event.preventDefault();
             event.stopPropagation();
-            const newKey = event.key;
+            // UPDATED: Use event.code for re-binding
+            const newKey = event.code;
             
             if (newKey === 'Escape') {
                 setRebindingAction(null);
@@ -56,7 +57,8 @@ const ControlsCustomizer: React.FC<{onClose: () => void}> = ({ onClose }) => {
             );
 
             if (isUsed) {
-                alert(`Key "${newKey}" is already assigned. Please choose another key.`);
+                // UPDATED: Use formatKey for a more user-friendly alert.
+                alert(`Key "${formatKey(newKey)}" is already assigned. Please choose another key.`);
                 return;
             }
             

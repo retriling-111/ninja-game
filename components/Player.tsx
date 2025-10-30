@@ -46,7 +46,7 @@ const Player: React.FC<PlayerProps> = ({ player }) => {
 
       {/* Dash Afterimage */}
       {player.isDashing && (
-        <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-r from-red-500/0 via-red-500/60 to-red-500/0 opacity-80 scale-x-150" />
+        <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-r from-red-500/0 via-red-500/60 to-red-500/0 player-dash-trail" />
       )}
       
       {/* Teleport Effect */}
