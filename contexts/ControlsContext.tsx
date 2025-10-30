@@ -116,11 +116,11 @@ export const ControlsProvider: React.FC<ControlsProviderProps> = ({ children }) 
     return formatKey(keymap[action] || '');
   }, [keymap]);
 
-  const pressKey = useCallback((key: string) => setPressedKeys(prev => new Set(prev).add(key)), []);
+  const pressKey = useCallback((key: string) => setPressedKeys(prev => new Set(prev).add(key.toLowerCase())), []);
   const releaseKey = useCallback((key: string) => {
     setPressedKeys(prev => {
       const newKeys = new Set(prev);
-      newKeys.delete(key);
+      newKeys.delete(key.toLowerCase());
       return newKeys;
     });
   }, []);

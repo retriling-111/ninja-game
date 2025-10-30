@@ -2,8 +2,8 @@ import React, { useRef, useState, useEffect, useMemo } from 'react';
 import { useGameLoop } from '../hooks/useGameLoop';
 import { useControls } from '../hooks/useControls';
 import { useControlsContext } from '../contexts/ControlsContext';
-import type { PlayerState, LevelObject, GameObject, EnemyState, ProjectileState, EnemyType, SwingingBladeState, ShurikenProjectileState } from '../types';
-import { GAME_WIDTH, GAME_HEIGHT, PLAYER, PHYSICS, ALL_LEVELS, ENEMY, ENEMY_DEFINITIONS, getBiomeForLevel, BOSS_LEVEL_INTERVAL, getBossStats } from '../constants';
+import type { PlayerState, LevelObject, GameObject, EnemyState, ProjectileState, EnemyType, SwingingBladeState, ShurikenProjectileState, ControlAction } from '../types';
+import { GAME_WIDTH, GAME_HEIGHT, PLAYER, PHYSICS, ALL_LEVELS, ENEMY, ENEMY_DEFINITIONS, getBiomeForLevel, BOSS_LEVEL_INTERVAL, getBossStats, TUTORIAL_LEVEL, TUTORIAL_PROMPTS, TutorialPrompt } from '../constants';
 import Player from './Player';
 import Platform from './Platform';
 import Spike from './Spike';
@@ -80,18 +80,15 @@ const PauseMenu: React.FC<PauseMenuProps> = ({ onResume, onRestart, onGoToMainMe
     );
 };
 
-interface MobileControlsProps {
-    onKeyPress: (key: string) => void;
-    onKeyRelease: (key: string) => void;
-}
-
-const MobileControlButton: React.FC<{
+interface MobileControlButtonProps {
     label: string | React.ReactNode;
     actionKey: string;
     onKeyPress: (key: string) => void;
     onKeyRelease: (key: string) => void;
     className?: string;
-}> = ({ label, actionKey, onKeyPress, onKeyRelease, className }) => {
+}
+
+const MobileControlButton: React.FC<MobileControlButtonProps> = ({ label, actionKey, onKeyPress, onKeyRelease, className }) => {
       
     return (
         <button
@@ -107,8 +104,8 @@ const MobileControlButton: React.FC<{
     );
 };
 
-const MobileControls: React.FC<MobileControlsProps> = ({ onKeyPress, onKeyRelease }) => {
-    const { keymap, mobileLayout } = useControlsContext();
+const MobileControls: React.FC = () => {
+    const { keymap, mobileLayout, pressKey, releaseKey } = useControlsContext();
 
     const movementStyle: React.CSSProperties = {
       position: 'absolute',
@@ -126,17 +123,46 @@ const MobileControls: React.FC<MobileControlsProps> = ({ onKeyPress, onKeyReleas
         <div className="absolute inset-0 z-20 pointer-events-none">
             {/* Movement Controls */}
             <div style={movementStyle} className="flex items-center gap-4 pointer-events-auto">
-                <MobileControlButton label="←" actionKey={keymap.moveLeft} onKeyPress={onKeyPress} onKeyRelease={onKeyRelease} />
-                <MobileControlButton label="→" actionKey={keymap.moveRight} onKeyPress={onKeyPress} onKeyRelease={onKeyRelease} />
+                <MobileControlButton label="←" actionKey={keymap.moveLeft} onKeyPress={pressKey} onKeyRelease={releaseKey} />
+                <MobileControlButton label="→" actionKey={keymap.moveRight} onKeyPress={pressKey} onKeyRelease={releaseKey} />
             </div>
 
             {/* Action Controls */}
             <div style={actionsStyle} className="flex items-end gap-3 pointer-events-auto">
-                 <MobileControlButton label="S" actionKey={keymap.shield} onKeyPress={onKeyPress} onKeyRelease={onKeyRelease} className="w-14 h-14" />
-                 <MobileControlButton label="D" actionKey={keymap.dash} onKeyPress={onKeyPress} onKeyRelease={onKeyRelease} className="w-14 h-14" />
-                 <MobileControlButton label="W" actionKey={keymap.shuriken} onKeyPress={onKeyPress} onKeyRelease={onKeyRelease} className="w-14 h-14" />
-                 <MobileControlButton label="A" actionKey={keymap.attack} onKeyPress={onKeyPress} onKeyRelease={onKeyRelease} />
-                 <MobileControlButton label="↑" actionKey={keymap.jump} onKeyPress={onKeyPress} onKeyRelease={onKeyRelease} className="w-20 h-20 text-4xl"/>
+                 <MobileControlButton label="S" actionKey={keymap.shield} onKeyPress={pressKey} onKeyRelease={releaseKey} className="w-14 h-14" />
+                 <MobileControlButton label="D" actionKey={keymap.dash} onKeyPress={pressKey} onKeyRelease={releaseKey} className="w-14 h-14" />
+                 <MobileControlButton label="W" actionKey={keymap.shuriken} onKeyPress={pressKey} onKeyRelease={releaseKey} className="w-14 h-14" />
+                 <MobileControlButton label="A" actionKey={keymap.attack} onKeyPress={pressKey} onKeyRelease={releaseKey} />
+                 <MobileControlButton label="↑" actionKey={keymap.jump} onKeyPress={pressKey} onKeyRelease={releaseKey} className="w-20 h-20 text-4xl"/>
+            </div>
+        </div>
+    );
+};
+
+interface TutorialPromptDisplayProps {
+    prompt: TutorialPrompt | null;
+    getKeyForAction: (action: ControlAction) => string;
+}
+
+const TutorialPromptDisplay: React.FC<TutorialPromptDisplayProps> = ({ prompt, getKeyForAction }) => {
+    if (!prompt) return null;
+
+    const processText = (text: string): (string | React.ReactNode)[] => {
+        const parts = text.split(/('\${.*?}')/g);
+        return parts.map((part, index) => {
+            const match = part.match(/'\${(.*)}'/);
+            if (match && match[1]) {
+                const actionKey = match[1] as ControlAction;
+                return <span key={index} className="mx-1 px-2 py-0.5 bg-red-700 rounded-md font-bold">{getKeyForAction(actionKey)}</span>;
+            }
+            return part;
+        });
+    };
+
+    return (
+        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-full max-w-md animate-fadeIn z-20">
+            <div className="bg-black/60 ios-backdrop-blur p-4 rounded-xl border-2 border-red-800/50 text-center text-white text-xl font-semibold shadow-2xl shadow-black">
+                {prompt.text.map((line, i) => <p key={i}>{processText(line)}</p>)}
             </div>
         </div>
     );
@@ -419,6 +445,7 @@ const ENEMY_AI_UPDATES: Record<EnemyType, AiUpdateFunction | undefined> = {
     patrol_fire: updatePatrol,
     shooter_ice: updateShooter,
     boss_1: updateBoss,
+    dummy: undefined, // Dummy enemies have no AI
 };
 
 
@@ -485,7 +512,9 @@ const CooldownIndicator: React.FC<{ cooldown: number; maxCooldown: number, label
 // --- MAIN GAME COMPONENT ---
 
 const Game: React.FC<GameProps> = ({ level, onGameOver, onLevelComplete, onGoToMainMenu, onRestartCurrentLevel }) => {
-  const currentLevelData = useMemo(() => ALL_LEVELS[level - 1] || ALL_LEVELS[0], [level]);
+  const isTutorial = level === 0;
+  const currentLevelData = useMemo(() => isTutorial ? TUTORIAL_LEVEL : (ALL_LEVELS[level - 1] || ALL_LEVELS[0]), [level, isTutorial]);
+  
   const [isPaused, setIsPaused] = useState(false);
   const [, setFrame] = useState(0);
   const { device } = useResponsive();
@@ -494,7 +523,7 @@ const Game: React.FC<GameProps> = ({ level, onGameOver, onLevelComplete, onGoToM
   const gameContainerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState<number | null>(null);
 
-  const { pressKey, releaseKey, keymap } = useControlsContext();
+  const { keymap, getKeyForAction } = useControlsContext();
   const controls = useControls();
 
   const playerRef = useRef<PlayerState>({
@@ -528,6 +557,8 @@ const Game: React.FC<GameProps> = ({ level, onGameOver, onLevelComplete, onGoToM
   const [swingingBlades, setSwingingBlades] = useState<SwingingBladeState[]>([]);
   const [healthPacks, setHealthPacks] = useState<LevelObject[]>([]);
   const [shuriken, setShuriken] = useState<ShurikenProjectileState | null>(null);
+  const [activePrompt, setActivePrompt] = useState<TutorialPrompt | null>(null);
+  const triggeredPrompts = useRef(new Set<string>());
   
   const hitEnemiesDuringSwing = useRef(new Set<string>());
   
@@ -631,6 +662,9 @@ const Game: React.FC<GameProps> = ({ level, onGameOver, onLevelComplete, onGoToM
     setShuriken(null);
     playerRef.current.shurikenOut = false;
     setIsBossDefeated(false);
+    triggeredPrompts.current.clear();
+    setActivePrompt(null);
+
 
   }, [level, currentLevelData, isBossLevel]);
 
@@ -638,6 +672,21 @@ const Game: React.FC<GameProps> = ({ level, onGameOver, onLevelComplete, onGoToM
     if (isPaused) return;
 
     const player = playerRef.current;
+
+    // --- TUTORIAL PROMPTS ---
+    if (isTutorial) {
+        for (const prompt of TUTORIAL_PROMPTS) {
+            if (player.x > prompt.triggerX && !triggeredPrompts.current.has(prompt.id)) {
+                setActivePrompt(prompt);
+                triggeredPrompts.current.add(prompt.id);
+                setTimeout(() => {
+                    setActivePrompt(prev => prev?.id === prompt.id ? null : prev);
+                }, 7000); // Prompt visible for 7 seconds
+                break;
+            }
+        }
+    }
+
 
     // --- PLAYER TIMERS ---
     if (player.attackCooldown > 0) player.attackCooldown -= deltaTime;
@@ -960,7 +1009,6 @@ const Game: React.FC<GameProps> = ({ level, onGameOver, onLevelComplete, onGoToM
 
   const camera = cameraRef.current;
   const biome = getBiomeForLevel(level);
-  const { getKeyForAction } = useControlsContext();
 
   return (
     <div
@@ -974,7 +1022,7 @@ const Game: React.FC<GameProps> = ({ level, onGameOver, onLevelComplete, onGoToM
     >
       {/* Non-scaled UI overlays */}
       {isPaused && <PauseMenu onResume={() => setIsPaused(false)} onRestart={onRestartCurrentLevel} onGoToMainMenu={onGoToMainMenu} />}
-      {!isDesktop && <MobileControls onKeyPress={pressKey} onKeyRelease={releaseKey} />}
+      {!isDesktop && <MobileControls />}
       
       {/* Scaled game container */}
       <div
@@ -996,7 +1044,7 @@ const Game: React.FC<GameProps> = ({ level, onGameOver, onLevelComplete, onGoToM
         </div>
 
         <div className="absolute top-2 left-1/2 -translate-x-1/2 p-2 px-4 bg-black/40 ios-backdrop-blur rounded-xl border border-white/10 z-10 text-lg font-semibold text-white">
-          Level: {level}
+          Level: {isTutorial ? 'Tutorial' : level}
         </div>
 
         <button
@@ -1006,6 +1054,8 @@ const Game: React.FC<GameProps> = ({ level, onGameOver, onLevelComplete, onGoToM
         >
           ||
         </button>
+
+        <TutorialPromptDisplay prompt={activePrompt} getKeyForAction={getKeyForAction} />
 
         {/* Game World */}
         <div

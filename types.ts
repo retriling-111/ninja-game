@@ -19,7 +19,7 @@ export interface GameObject {
 
 export type LevelObjectType = 'platform' | 'enemy' | 'spike' | 'goal' | 'swingingBlade' | 'healthPack';
 
-export type EnemyType = 'patrol' | 'shooter' | 'charger' | 'ninja' | 'boss_1' | 'patrol_fire' | 'shooter_ice';
+export type EnemyType = 'patrol' | 'shooter' | 'charger' | 'ninja' | 'boss_1' | 'patrol_fire' | 'shooter_ice' | 'dummy';
 export type AiState = 'patrolling' | 'aggro' | 'special_attack' | 'boss_barrage' | 'boss_teleport_slam' | 'boss_spawn_minions';
 export type Direction = 'left' | 'right';
 
@@ -33,6 +33,14 @@ export interface LevelObject extends GameObject {
   chainLength?: number;
   period?: number;
   initialAngle?: number;
+}
+
+export interface PlayerProfile {
+    username: string;
+    current_level: number;
+    dead_count: number;
+    tutorial_complete: boolean;
+    max_level_unlocked: number;
 }
 
 export interface PlayerState extends GameObject {

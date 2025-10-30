@@ -1,6 +1,5 @@
-
 import React, { useState, useCallback, useEffect } from 'react';
-import type { GameStatus } from './types';
+import type { GameStatus, PlayerProfile } from './types';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from './supabaseClient';
 import { savePlayerData, loadPlayerData, clearOffline, signOut } from './data/supabase';
@@ -16,10 +15,8 @@ import LevelCompleteScreen from './components/ui/LevelCompleteScreen';
 import LeaderboardScreen from './components/ui/LeaderboardScreen';
 import { ALL_LEVELS } from './constants';
 
-interface PlayerProfile {
-    username: string;
-    current_level: number;
-    dead_count: number;
+interface LoginSuccessPayload {
+    offlineProfile?: PlayerProfile;
 }
 
 const App: React.FC = () => {
@@ -82,16 +79,22 @@ const App: React.FC = () => {
   };
 
   // --- GAME STATE HANDLERS ---
-  const handleLoginSuccess = () => {
-    setGameStatus('loadingData');
+  const handleLoginSuccess = ({ offlineProfile }: LoginSuccessPayload = {}) => {
+    if (offlineProfile) {
+        setPlayerProfile(offlineProfile);
+        setGameStatus('start');
+    } else {
+        setGameStatus('loadingData');
+    }
   };
 
   const startGame = useCallback(async (level: number) => {
-    if (playerProfile && session) {
+    if (playerProfile) {
       const newProfile = { ...playerProfile, current_level: level };
       setPlayerProfile(newProfile);
-      // FIX: Pass username to savePlayerData to support offline saving.
-      await savePlayerData(session.user.id, newProfile.dead_count, newProfile.current_level, newProfile.username);
+      if(session) {
+        await savePlayerData(session.user.id, newProfile);
+      }
     }
     setGameStatus('playing');
     setGameKey(prev => prev + 1);
@@ -108,30 +111,57 @@ const App: React.FC = () => {
   }, []);
 
   const handleGameOver = useCallback(async () => {
-    if (playerProfile && session) {
+    if (playerProfile) {
         const newDeathCount = playerProfile.dead_count + 1;
         const newProfile = { ...playerProfile, dead_count: newDeathCount };
         setPlayerProfile(newProfile);
         setGameStatus('gameOver');
-        // FIX: Pass username to savePlayerData to support offline saving.
-        await savePlayerData(session.user.id, newProfile.dead_count, newProfile.current_level, newProfile.username);
+        if(session) {
+            await savePlayerData(session.user.id, newProfile);
+        }
     }
   }, [playerProfile, session]);
 
-  const handleLevelComplete = useCallback(() => {
-    if (playerProfile && playerProfile.current_level < ALL_LEVELS.length) {
+  const handleLevelComplete = useCallback(async () => {
+    if (!playerProfile) return;
+
+    // Tutorial completion
+    if (playerProfile.current_level === 0) {
+      const newProfile = { ...playerProfile, tutorial_complete: true };
+      setPlayerProfile(newProfile);
+      if (session) {
+        await savePlayerData(session.user.id, newProfile);
+      }
+      goToMainMenu();
+      return;
+    }
+    
+    // Regular level completion and unlocking
+    const nextLevel = playerProfile.current_level + 1;
+    const currentMax = playerProfile.max_level_unlocked || 1;
+    const newMaxLevel = Math.max(currentMax, nextLevel);
+    
+    if (newMaxLevel > currentMax) {
+      const newProfile = { ...playerProfile, max_level_unlocked: newMaxLevel };
+      setPlayerProfile(newProfile);
+      if(session) {
+        await savePlayerData(session.user.id, newProfile);
+      }
+    }
+
+    if (playerProfile.current_level < ALL_LEVELS.length) {
       setGameStatus('levelComplete');
     } else {
       setGameStatus('gameEnd');
     }
-  }, [playerProfile]);
+  }, [playerProfile, session, goToMainMenu]);
 
   const handleContinueToNextLevel = useCallback(async () => {
-    if (playerProfile && session) {
+    if (playerProfile) {
         const nextLevel = playerProfile.current_level + 1;
         startGame(nextLevel);
     }
-  }, [playerProfile, session, startGame]);
+  }, [playerProfile, startGame]);
   
   const handleSignOut = async () => {
       await signOut();
@@ -139,12 +169,13 @@ const App: React.FC = () => {
   };
 
   const handleResetGame = useCallback(async () => {
-    if (playerProfile && session) {
-        const newProfile = { ...playerProfile, current_level: 1, dead_count: 0 };
+    if (playerProfile) {
+        const newProfile = { ...playerProfile, current_level: 1, dead_count: 0, max_level_unlocked: 1 };
         setPlayerProfile(newProfile);
         setGameStatus('start');
-        // FIX: Pass username to savePlayerData to support offline saving.
-        await savePlayerData(session.user.id, newProfile.dead_count, newProfile.current_level, newProfile.username);
+        if(session) {
+            await savePlayerData(session.user.id, newProfile);
+        }
         clearOffline();
     }
   }, [session, playerProfile]);
@@ -160,28 +191,27 @@ const App: React.FC = () => {
       case 'start':
         if (!playerProfile) return <LoadingScreen />;
         return <StartScreen 
-                  onStart={() => startGame(playerProfile.current_level)} 
+                  onSelectLevel={startGame}
                   onShowAbout={showAbout} 
                   onShowLevels={showLevels}
                   onShowSettings={showSettings}
                   onShowLeaderboard={showLeaderboard}
-                  currentLevel={playerProfile.current_level}
-                  deathCount={playerProfile.dead_count}
-                  username={playerProfile.username}
+                  playerProfile={playerProfile}
                 />;
       case 'about':
         return <AboutScreen onBack={goToMainMenu} />;
       case 'levels':
-        return <LevelsScreen onBack={goToMainMenu} onSelectLevel={startGame} />;
+        if (!playerProfile) return <LoadingScreen />;
+        return <LevelsScreen onBack={goToMainMenu} onSelectLevel={startGame} playerProfile={playerProfile} />;
       case 'settings':
-         if (!playerProfile || !session) return <LoadingScreen />;
+         if (!playerProfile) return <LoadingScreen />;
         return <SettingsScreen 
                   onBack={goToMainMenu} 
                   onResetGame={handleResetGame} 
                   username={playerProfile.username}
                   onUpdateProfile={updatePlayerProfile}
                   onSignOut={handleSignOut}
-                  userId={session.user.id}
+                  userId={session?.user.id || 'offline_user'}
                 />;
       case 'leaderboard':
         return <LeaderboardScreen onBack={goToMainMenu} />;

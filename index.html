@@ -161,27 +161,61 @@
         animation: player-teleport 0.2s ease-out forwards;
       }
 
-      /* Biome Backgrounds */
-      /* Add your background images here! */
+      /* --- Biome Backgrounds --- */
+      @keyframes animated-gradient {
+        0%, 100% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+      }
       .biome-default {
-        background-color: #1a202c; /* Default dark background */
+        background-color: #1a202c;
       }
       .biome-fire {
-        /* example: background-image: url('/backgrounds/fire_world.png'); */
         background: linear-gradient(to bottom, #4a0404, #000000);
       }
       .biome-ice {
-        /* example: background-image: url('/backgrounds/ice_world.png'); */
         background: linear-gradient(to bottom, #0c2a4c, #000000);
       }
-       .biome-forest {
-        /* example: background-image: url('/backgrounds/forest_world.png'); */
+      .biome-forest {
         background: linear-gradient(to bottom, #044a0c, #000000);
       }
       .biome-sky {
-        /* example: background-image: url('/backgrounds/sky_world.png'); */
         background: linear-gradient(to bottom, #2c5282, #6b46c1);
       }
+
+      /* --- NEW BIOMES --- */
+      .biome-sunken_temple {
+        background: linear-gradient(45deg, #022c43, #053f5e, #115173, #053f5e);
+        background-size: 400% 400%;
+        animation: animated-gradient 15s ease infinite;
+      }
+      .biome-crystal_caverns {
+        background: linear-gradient(-45deg, #1d0f33, #3c1e5a, #2e1548, #000000);
+        background-size: 400% 400%;
+        animation: animated-gradient 20s ease infinite;
+      }
+      .biome-volcanic_heart {
+        background: linear-gradient(225deg, #ff4e00, #ff0000, #2c0404, #000000);
+        background-size: 400% 400%;
+        animation: animated-gradient 12s ease infinite;
+      }
+      .biome-haunted_battlefield {
+        background: linear-gradient(to bottom, #16222A, #3A434A);
+      }
+      .biome-aetherium_clouds {
+        background: linear-gradient(135deg, #4c1d95, #8b5cf6, #c4b5fd, #ffffff);
+        background-size: 400% 400%;
+        animation: animated-gradient 18s ease infinite;
+      }
+      .biome-mechanists_forge {
+        background: linear-gradient(to right, #3E2723, #5D4037, #A1887F, #5D4037);
+        background-size: 400% 400%;
+        animation: animated-gradient 25s ease infinite;
+      }
+      .biome-void_nexus {
+        background-color: #000000;
+        /* Consider adding a subtle particle effect here via JS canvas later */
+      }
+
     </style>
   <script type="importmap">
 {

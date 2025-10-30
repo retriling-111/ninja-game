@@ -67,6 +67,11 @@ export const ENEMY_DEFINITIONS: Record<EnemyType, any> = {
         meleeDashDuration: 300,
         health: 4,
     },
+    dummy: {
+        width: 35,
+        height: 35,
+        health: 1,
+    },
     // Biome variations - you can change colors or stats
     patrol_fire: {
         width: 35,
@@ -108,8 +113,22 @@ export const ENEMY = {
 };
 
 // --- WORLD/BIOME LOGIC ---
-export const BIOMES = ['default', 'fire', 'ice', 'forest', 'sky'];
+export const BIOMES = [
+    'default', 
+    'fire', 
+    'ice', 
+    'forest', 
+    'sky',
+    'sunken_temple',
+    'crystal_caverns',
+    'volcanic_heart',
+    'haunted_battlefield',
+    'aetherium_clouds',
+    'mechanists_forge',
+    'void_nexus',
+];
 export const getBiomeForLevel = (levelNumber: number): string => {
+    if (levelNumber === 0) return 'default'; // Tutorial biome
     const biomeIndex = Math.floor((levelNumber - 1) / BOSS_LEVEL_INTERVAL);
     return BIOMES[biomeIndex % BIOMES.length];
 };
@@ -168,8 +187,8 @@ const generateLevel = (levelNumber: number): LevelObject[] => {
     const biome = getBiomeForLevel(levelNumber);
     const enemyPool: EnemyType[] = ['patrol', 'charger', 'shooter', 'ninja'];
     let biomeEnemyPool: EnemyType[] = [];
-    if (biome === 'fire') biomeEnemyPool = ['patrol_fire', 'charger'];
-    else if (biome === 'ice') biomeEnemyPool = ['shooter_ice', 'patrol'];
+    if (biome === 'fire' || biome === 'volcanic_heart') biomeEnemyPool = ['patrol_fire', 'charger'];
+    else if (biome === 'ice' || biome === 'glacial_abyss') biomeEnemyPool = ['shooter_ice', 'patrol'];
     else biomeEnemyPool = enemyPool.filter((_, i) => i < 1 + Math.floor(difficulty * 4)); // Gradually introduce enemies
 
 
@@ -193,7 +212,7 @@ const generateLevel = (levelNumber: number): LevelObject[] => {
         let hasHazard = false;
 
         const enemyChance = 0.15 + difficulty * 0.5;
-        if (rand() < enemyChance) {
+        if (rand() < enemyChance && biomeEnemyPool.length > 0) {
             const enemyType = biomeEnemyPool[Math.floor(rand() * biomeEnemyPool.length)];
             const def = ENEMY_DEFINITIONS[enemyType];
             if (def) {
@@ -246,3 +265,43 @@ const generateLevel = (levelNumber: number): LevelObject[] => {
 };
 
 export const ALL_LEVELS = Array.from({ length: 250 }, (_, i) => generateLevel(i + 1));
+
+// --- TUTORIAL CONSTANTS ---
+
+export const TUTORIAL_LEVEL: LevelObject[] = [
+    // Start platform
+    { id: 'tut_p_1', type: 'platform', x: 0, y: GAME_HEIGHT - 40, width: 300, height: 40 },
+    // Gap for jump practice
+    { id: 'tut_p_2', type: 'platform', x: 400, y: GAME_HEIGHT - 60, width: 250, height: 60 },
+    // Higher platform for double jump
+    { id: 'tut_p_3', type: 'platform', x: 750, y: GAME_HEIGHT - 180, width: 200, height: 20 },
+    // Platform with dummy enemy
+    { id: 'tut_p_4', type: 'platform', x: 1050, y: GAME_HEIGHT - 180, width: 300, height: 20 },
+    { id: 'tut_e_1', type: 'enemy', enemyType: 'dummy', x: 1175, y: GAME_HEIGHT - 180 - ENEMY_DEFINITIONS.dummy.height, width: ENEMY_DEFINITIONS.dummy.width, height: ENEMY_DEFINITIONS.dummy.height },
+    // Wall for dash explanation
+    { id: 'tut_p_5', type: 'platform', x: 1450, y: GAME_HEIGHT - 300, width: 20, height: 260 },
+    // Platform after wall
+    { id: 'tut_p_6', type: 'platform', x: 1550, y: GAME_HEIGHT - 40, width: 400, height: 40 },
+    // Spikes for shield explanation
+    { id: 'tut_s_1', type: 'spike', x: 1650, y: GAME_HEIGHT - 40 - 20, width: 100, height: 20, orientation: 'up' },
+    // Final platform
+    { id: 'tut_p_7', type: 'platform', x: 2050, y: GAME_HEIGHT - 40, width: 200, height: 40 },
+    // Goal
+    { id: 'goal', type: 'goal', x: 2200, y: GAME_HEIGHT - 40 - 60, width: 60, height: 60 },
+];
+
+export interface TutorialPrompt {
+    id: string;
+    text: string[];
+    triggerX: number;
+}
+
+export const TUTORIAL_PROMPTS: TutorialPrompt[] = [
+    { id: 'move', text: [`Use '${'moveLeft'}' & '${'moveRight'}' to move.`], triggerX: 50 },
+    { id: 'jump', text: [`Press '${'jump'}' to jump across the gap.`], triggerX: 280 },
+    { id: 'double_jump', text: ["Press '${'jump'}' again mid-air", "to double jump."], triggerX: 600 },
+    { id: 'attack', text: [`Press '${'attack'}' to destroy the target.`], triggerX: 950 },
+    { id: 'dash', text: [`Dash through obstacles with '${'dash'}'!`, `Dash also makes you briefly invincible.`], triggerX: 1300 },
+    { id: 'shield', text: [`Hold '${'shield'}' to block damage.`], triggerX: 1560 },
+    { id: 'shuriken', text: [`'${'shuriken'}' throws a shuriken.`, `Press again to teleport to it!`], triggerX: 1800 },
+];

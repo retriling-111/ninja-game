@@ -1,13 +1,16 @@
 import React from 'react';
 import { ALL_LEVELS } from '../../constants';
+import type { PlayerProfile } from '../../types';
 
 interface LevelsScreenProps {
   onBack: () => void;
   onSelectLevel: (level: number) => void;
+  playerProfile: PlayerProfile;
 }
 
-const LevelsScreen: React.FC<LevelsScreenProps> = ({ onBack, onSelectLevel }) => {
+const LevelsScreen: React.FC<LevelsScreenProps> = ({ onBack, onSelectLevel, playerProfile }) => {
   const totalLevels = ALL_LEVELS.length;
+  const maxUnlocked = playerProfile.max_level_unlocked || 1;
 
   return (
     <div className="text-center animate-fadeIn flex flex-col items-center justify-center max-w-4xl w-full h-[90vh] p-4">
@@ -20,20 +23,24 @@ const LevelsScreen: React.FC<LevelsScreenProps> = ({ onBack, onSelectLevel }) =>
           <div className="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 gap-3">
             {Array.from({ length: totalLevels }).map((_, i) => {
               const levelNum = i + 1;
-              const isUnlocked = true;
+              const isUnlocked = levelNum <= maxUnlocked;
 
               return (
                 <button
                   key={levelNum}
                   onClick={() => isUnlocked && onSelectLevel(levelNum)}
                   disabled={!isUnlocked}
-                  className={`aspect-square flex items-center justify-center font-bold text-xl md:text-2xl border rounded-lg transition-all duration-200 ${
+                  className={`aspect-square flex items-center justify-center font-bold text-xl md:text-2xl border rounded-lg transition-all duration-200 relative ${
                     isUnlocked 
                       ? 'bg-gray-800/80 border-gray-600/80 hover:bg-red-700 hover:border-red-600 text-white shadow-md shadow-black/50' 
                       : 'bg-black/50 border-gray-800 text-gray-600 cursor-not-allowed'
                   }`}
                 >
-                  {levelNum}
+                  {isUnlocked ? levelNum : (
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-gray-700" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                    </svg>
+                  )}
                 </button>
               );
             })}

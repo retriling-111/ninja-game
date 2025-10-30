@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { signIn, signUp } from '../../data/supabase';
+import { signIn, signUp, saveOfflineProfile, getOffline } from '../../data/supabase';
+import type { PlayerProfile } from '../../types';
 
 interface LoginScreenProps {
-  onLoginSuccess: () => void;
+  onLoginSuccess: (payload: { offlineProfile?: PlayerProfile }) => void;
 }
 
 const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
@@ -12,10 +13,19 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
   const [username, setUsername] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [info, setInfo] = useState<string | null>(null);
+
+  const handleOfflineSuccess = (profile: PlayerProfile) => {
+      setInfo("Offline mode detected. A local profile has been created.");
+      setTimeout(() => {
+        onLoginSuccess({ offlineProfile: profile });
+      }, 1500);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setInfo(null);
     setLoading(true);
 
     if (isSigningUp) {
@@ -25,20 +35,40 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
         return;
       }
       const { error } = await signUp(email, password, username.trim());
+      
       if (error) {
-        setError(error.message);
+        if (error.message === 'Supabase not configured') {
+            const offlineProfile: PlayerProfile = { 
+              username: username.trim(), 
+              dead_count: 0, 
+              current_level: 1,
+              tutorial_complete: false,
+              max_level_unlocked: 1,
+            };
+            saveOfflineProfile(offlineProfile);
+            handleOfflineSuccess(offlineProfile);
+        } else {
+            setError(error.message);
+        }
       } else {
-        // Supabase sends a confirmation email, so we can inform the user.
         alert('Signed up successfully! Please check your email to confirm your account.');
-        // For this game, we'll log them in directly for a better experience.
-        onLoginSuccess();
+        onLoginSuccess({});
       }
-    } else {
+    } else { // Logging In
       const { error } = await signIn(email, password);
       if (error) {
-        setError(error.message);
+        if (error.message === 'Supabase not configured') {
+            const offlineProfile = getOffline();
+            if (offlineProfile) {
+                handleOfflineSuccess(offlineProfile);
+            } else {
+                setError("No offline profile found. Please sign up to create one.");
+            }
+        } else {
+            setError(error.message);
+        }
       } else {
-        onLoginSuccess();
+        onLoginSuccess({});
       }
     }
 
@@ -85,6 +115,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
         />
 
         {error && <p className="text-red-500 mt-2">{error}</p>}
+        {info && <p className="text-green-400 mt-2">{info}</p>}
         
         <button type="submit" disabled={loading} className={`${buttonClass} mt-4`}>
           {loading ? 'Loading...' : isSigningUp ? 'Sign Up' : 'Log In'}

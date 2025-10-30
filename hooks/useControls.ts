@@ -4,7 +4,6 @@ import type { ControlAction } from '../types';
 
 export const useControls = () => {
   const { keymap, pressedKeys } = useControlsContext();
-  // FIX: Changed useRef type from `Set<string>` to `ReadonlySet<string>` to match the `pressedKeys` type from the context, resolving the assignment error on line 12.
   const prevPressedKeys = useRef<ReadonlySet<string>>(new Set());
 
   // This effect runs AFTER the render, so when the next render's useMemo runs,
@@ -16,12 +15,14 @@ export const useControls = () => {
   const controls = useMemo(() => {
     const isActionPressed = (action: ControlAction): boolean => {
       const key = keymap[action];
-      return pressedKeys.has(key);
+      if (!key) return false; // Guard against missing keymap
+      return pressedKeys.has(key.toLowerCase());
     };
 
     const isActionJustPressed = (action: ControlAction): boolean => {
       const key = keymap[action];
-      return pressedKeys.has(key) && !prevPressedKeys.current.has(key);
+      if (!key) return false; // Guard against missing keymap
+      return pressedKeys.has(key.toLowerCase()) && !prevPressedKeys.current.has(key.toLowerCase());
     };
 
     return { isActionPressed, isActionJustPressed };

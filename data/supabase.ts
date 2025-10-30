@@ -1,12 +1,9 @@
-
 import { supabase } from '../supabaseClient';
 import type { AuthError, User, PostgrestError } from '@supabase/supabase-js';
+import type { PlayerProfile } from '../types';
 
-export interface PlayerData {
+export interface PlayerData extends PlayerProfile {
   user_id: string;
-  username: string;
-  dead_count: number;
-  current_level: number;
 }
 
 export interface LeaderboardEntry {
@@ -25,6 +22,9 @@ export const signUp = async (email: string, password: string, username: string):
     .single();
 
   if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116 means no rows found, which is good
+    if (fetchError.message === 'Supabase not configured') {
+        return { user: null, error: { name: 'OfflineError', message: 'Supabase not configured' } as AuthError };
+    }
     return { user: null, error: { name: 'FetchError', message: 'Could not validate username.' } as AuthError };
   }
 
@@ -50,14 +50,14 @@ export const signUp = async (email: string, password: string, username: string):
       username: username,
       dead_count: 0,
       current_level: 1,
+      tutorial_complete: false,
+      max_level_unlocked: 1,
     });
 
     if (profileError) {
       // This is a tricky state. The user exists in auth but not in players.
       // For simplicity, we'll return the error. A more robust solution might try to delete the auth user.
       console.error("Error creating player profile:", profileError);
-      // FIX: Conversion of type 'PostgrestError' to type 'AuthError' may be a mistake because neither type sufficiently overlaps with the other.
-      // Create a new error object that is compatible with AuthError.
       return { user: null, error: { name: 'ProfileCreationError', message: profileError.message } as unknown as AuthError };
     }
   }
@@ -78,6 +78,14 @@ export const updateUserPassword = async (newPassword: string) => {
 }
 
 export const updateUsername = async (userId: string, newUsername: string) => {
+    // In offline mode, this will fail gracefully but we need to update local storage.
+    if(userId === 'offline_user') {
+      const offlineData = getOffline();
+      if(offlineData) {
+        saveOfflineProfile({ ...offlineData, username: newUsername });
+      }
+       return { error: null };
+    }
     return await supabase.from('players').update({ username: newUsername }).eq('user_id', userId);
 }
 
@@ -85,51 +93,56 @@ export const updateUsername = async (userId: string, newUsername: string) => {
 // --- DATA FUNCTIONS ---
 
 // Save player data to Supabase, or store locally if offline
-// FIX: Added username to the function signature to ensure it's available for offline fallback saves.
-export const savePlayerData = async (userId: string, deadCount: number, currentLevel: number, username: string): Promise<void> => {
-  const playerData = {
-    user_id: userId,
-    username,
-    dead_count: deadCount,
-    current_level: currentLevel,
-  };
-
+export const savePlayerData = async (userId: string, profile: PlayerProfile): Promise<void> => {
+  if(userId === 'offline_user') {
+    saveOfflineProfile(profile);
+    return;
+  }
+  
   if (navigator.onLine) {
     const { error } = await supabase
       .from('players')
-      .update({ dead_count: deadCount, current_level: currentLevel, updated_at: new Date().toISOString() })
+      .update({ 
+          dead_count: profile.dead_count, 
+          current_level: profile.current_level, 
+          tutorial_complete: profile.tutorial_complete,
+          max_level_unlocked: profile.max_level_unlocked,
+          updated_at: new Date().toISOString() 
+        })
       .eq('user_id', userId);
 
     if (error) {
       if (error.code !== 'NO_CREDS') {
         console.error('Error saving player data:', error.message);
       }
-      // FIX: The playerData object now includes the 'username' property, resolving the type error.
-      saveOffline(playerData); // Save offline as a fallback
+      saveOfflineProfile(profile);
     } else {
       console.log('Player data saved successfully.');
     }
   } else {
-    // FIX: With username passed in, we can directly save player data offline.
-    saveOffline(playerData);
+    saveOfflineProfile(profile);
   }
 };
 
 // Load player data from Supabase
-export const loadPlayerData = async (userId: string): Promise<Omit<PlayerData, 'user_id'> | null> => {
+export const loadPlayerData = async (userId: string): Promise<PlayerProfile | null> => {
   if (!navigator.onLine) {
-    console.warn("Offline mode: Cannot load data from server.");
+    console.warn("Offline mode: Loading local data.");
     return getOffline();
   }
   
   const { data, error } = await supabase
     .from('players')
-    .select('username, dead_count, current_level')
+    .select('username, dead_count, current_level, tutorial_complete, max_level_unlocked')
     .eq('user_id', userId)
     .single();
 
   if (error) {
-    if (error.code !== 'PGRST116' && error.code !== 'NO_CREDS') {
+    // If Supabase is not configured, fall back to offline storage.
+    if (error.message === 'Supabase not configured') {
+      return getOffline();
+    }
+    if (error.code !== 'PGRST116') {
         console.error('Error loading player data:', error.message);
     }
     return null;
@@ -142,7 +155,7 @@ export const loadPlayerData = async (userId: string): Promise<Omit<PlayerData, '
 export const getLeaderboardData = async (): Promise<LeaderboardEntry[] | null> => {
     if (!navigator.onLine) {
         console.warn("Offline mode: Cannot load leaderboard.");
-        return null;
+        return [];
     }
 
     const { data, error } = await supabase
@@ -152,9 +165,10 @@ export const getLeaderboardData = async (): Promise<LeaderboardEntry[] | null> =
         .limit(20);
 
     if (error) {
-        if (error.code !== 'NO_CREDS') {
-            console.error('Error loading leaderboard data:', error.message);
+        if (error.message === 'Supabase not configured') {
+          return [];
         }
+        console.error('Error loading leaderboard data:', error.message);
         return null;
     }
     return data;
@@ -165,12 +179,12 @@ export const getLeaderboardData = async (): Promise<LeaderboardEntry[] | null> =
 
 const OFFLINE_STORAGE_KEY = 'crimsonShinobi_offlineData';
 
-const saveOffline = (playerData: Omit<PlayerData, 'user_id'> & { user_id?: string }) => {
+export const saveOfflineProfile = (playerData: PlayerProfile) => {
   console.log('Saving data locally for offline use.');
   localStorage.setItem(OFFLINE_STORAGE_KEY, JSON.stringify(playerData));
 };
 
-export const getOffline = (): Omit<PlayerData, 'user_id'> | null => {
+export const getOffline = (): PlayerProfile | null => {
   const offlineData = localStorage.getItem(OFFLINE_STORAGE_KEY);
   return offlineData ? JSON.parse(offlineData) : null;
 };
